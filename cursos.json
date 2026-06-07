@@ -1,0 +1,57 @@
+[
+  {
+    "id": "73d991d1",
+    "nombre": "PROBABILIDAD Y ESTADÍSTICA",
+    "url": "https://upn.class.com/class/2b048859-7fa2-444b-8a0d-bd541a033f6a",
+    "hora": "19",
+    "minuto": "30",
+    "dias": [
+      1
+    ],
+    "activo": true
+  },
+  {
+    "id": "41fd1bfa",
+    "nombre": "CÁLCULO 1",
+    "url": "https://upn.class.com/class/578cbf4b-8068-4b94-aadf-e0a767c4704f",
+    "hora": "19",
+    "minuto": "30",
+    "dias": [
+      2
+    ],
+    "activo": true
+  },
+  {
+    "id": "9a118daf",
+    "nombre": "PROGRAMACIÓN ORIENTADA A OBJETOS",
+    "url": "https://upn.class.com/class/acacca56-481d-4253-8405-10c1b08a676d?is_lti=true",
+    "hora": "19",
+    "minuto": "30",
+    "dias": [
+      3
+    ],
+    "activo": true
+  },
+  {
+    "id": "5171c36b",
+    "nombre": "PROGRAMACIÓN ORIENTADA A OBJETOS",
+    "url": "https://upn.class.com/class/acacca56-481d-4253-8405-10c1b08a676d?is_lti=true",
+    "hora": "21",
+    "minuto": "10",
+    "dias": [
+      5
+    ],
+    "activo": true
+  },
+  {
+    "id": "95036a59",
+    "nombre": "PROYECTO SOCIAL",
+    "url": "https://upn.class.com/class/8499fc46-cddb-4f57-8d59-bcbb45f6230b",
+    "hora": "17",
+    "minuto": "50",
+    "dias": [
+      6
+    ],
+    "activo": true
+  }
+]
