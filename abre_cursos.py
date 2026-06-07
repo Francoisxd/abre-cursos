@@ -424,7 +424,7 @@ class AbreCursosApp:
         
         # Fila de cabecera de la lista
         list_hdr = ctk.CTkFrame(lf, fg_color="transparent")
-        list_hdr.pack(fill="x", padx=10, pady=(5, 5))
+        list_hdr.pack(fill="x", padx=(10, 25), pady=(5, 5))
         ctk.CTkLabel(list_hdr, text="Cursos Programados", font=ctk.CTkFont(size=13, weight="bold"), text_color="white").pack(side="left")
         ctk.CTkLabel(list_hdr, text="Estado / Acciones", font=ctk.CTkFont(size=13, weight="bold"), text_color="white").pack(side="right")
         
@@ -1097,7 +1097,7 @@ rmdir /s /q "{appdata}"
 
         for c in filtered_cursos:
             card = self._create_course_card(self.scroll_frame, c)
-            card.pack(fill="x", padx=10, pady=5)
+            card.pack(fill="x", padx=(10, 25), pady=5)
 
     def guardar_curso(self):
         nombre, url, dias = self.v_nombre.get().strip(), self.v_url.get().strip(), [i for i, v in enumerate(self.v_dias) if v.get()]
