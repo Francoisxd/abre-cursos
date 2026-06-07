@@ -1,11 +1,14 @@
 """
 Abre-Cursos Pro - Automatizador de clases por horario
 - Modo Vacaciones
-- Notificaciones configurables
+- Notificaciones configurables con sonido personalizado
 - Evasión de pestañas basura de Zoom y MS Teams
 - Tarjetas interactivas con botones legibles y Tooltips
 - Actualizaciones automáticas y manuales integradas
 - Hilos seguros y soporte total de temas dinámicos (Tuplas de color)
+- Bandeja del sistema dinámica con acceso rápido
+- Historial persistente con tarjetas estadísticas
+- Detector de conflictos de horario
 """
 
 import json
@@ -36,6 +39,7 @@ else:
     
 DATA_FILE = BASE_DIR / "cursos.json"
 ICON_FILE = BASE_DIR / "icono.ico"
+LOG_FILE  = BASE_DIR / "historial.log"
 
 DIAS      = ["Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"]
 DIAS_FULL = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
@@ -85,18 +89,20 @@ def cargar_datos():
                 with open(DATA_FILE, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     if isinstance(data, list):
-                        data = {"version": 2, "settings": {"vacaciones": False, "tolerancia_min": 30, "notif_anticipacion": 5}, "cursos": data}
+                        data = {"version": 2, "settings": {"vacaciones": False, "tolerancia_min": 30, "notif_anticipacion": 5, "notif_sonido": "Reminder"}, "cursos": data}
                     if "settings" not in data:
-                        data["settings"] = {"vacaciones": False, "tolerancia_min": 30, "notif_anticipacion": 5}
+                        data["settings"] = {"vacaciones": False, "tolerancia_min": 30, "notif_anticipacion": 5, "notif_sonido": "Reminder"}
                     else:
                         if "tolerancia_min" not in data["settings"]:
                             data["settings"]["tolerancia_min"] = 30
                         if "notif_anticipacion" not in data["settings"]:
                             data["settings"]["notif_anticipacion"] = 5
+                        if "notif_sonido" not in data["settings"]:
+                            data["settings"]["notif_sonido"] = "Reminder"
                     return data
             except Exception:
                 pass
-        return {"version": 2, "settings": {"vacaciones": False, "tolerancia_min": 30, "notif_anticipacion": 5}, "cursos": []}
+        return {"version": 2, "settings": {"vacaciones": False, "tolerancia_min": 30, "notif_anticipacion": 5, "notif_sonido": "Reminder"}, "cursos": []}
 
 def guardar_datos(datos):
     with data_lock:
@@ -139,6 +145,7 @@ def scheduler_loop(app):
             vacaciones = app.datos.get("settings", {}).get("vacaciones", False)
             tolerancia = app.datos.get("settings", {}).get("tolerancia_min", 30)
             anticipacion = app.datos.get("settings", {}).get("notif_anticipacion", 5)
+            sound_type = app.datos.get("settings", {}).get("notif_sonido", "Reminder")
             cursos = [dict(c) for c in app.datos.get("cursos", [])]
 
         for curso in cursos:
@@ -153,7 +160,19 @@ def scheduler_loop(app):
                 notified_today[key] = True
                 try:
                     toast = Notification(app_id="AbreCursos", title=f"Clase en {anticipacion} minutos", msg=f"Prepárate, tu curso '{curso['nombre']}' empezará pronto.", duration="short")
-                    toast.set_audio(audio.Reminder, loop=False)
+                    
+                    # Map sound settings
+                    if sound_type == "Alarm":
+                        toast.set_audio(audio.Alarm, loop=False)
+                    elif sound_type == "SMS":
+                        toast.set_audio(audio.SMS, loop=False)
+                    elif sound_type == "Mail":
+                        toast.set_audio(audio.Mail, loop=False)
+                    elif sound_type == "Silencioso":
+                        toast.set_audio(audio.Silent, loop=False)
+                    else:
+                        toast.set_audio(audio.Reminder, loop=False)
+                        
                     toast.show()
                 except Exception as e:
                     print(f"Error notification: {e}")
@@ -367,11 +386,77 @@ class AbreCursosApp:
                 guardar_datos(self.datos)
             self.refrescar_lista()
 
+    def _cargar_estadisticas(self):
+        asistencias = 0
+        retrasos = 0
+        omitidos = 0
+        
+        if LOG_FILE.exists():
+            try:
+                with open(LOG_FILE, "r", encoding="utf-8") as f:
+                    for line in f:
+                        l = line.strip()
+                        if l.startswith("Abierto:") or l.startswith("Abierto manualmente:"):
+                            asistencias += 1
+                        if "retraso" in l:
+                            retrasos += 1
+                        if "Omitido (Modo Vacaciones)" in l:
+                            omitidos += 1
+            except Exception as e:
+                print(f"Error loading stats: {e}")
+                
+        self.lbl_stat_asis.configure(text=f"Asistencias\n{asistencias}")
+        self.lbl_stat_retr.configure(text=f"Retrasos\n{retrasos}")
+        self.lbl_stat_omit.configure(text=f"Omitidos\n{omitidos}")
+
     def _tab_historial(self, parent):
+        # Stats container
+        stats_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        stats_frame.pack(fill="x", padx=20, pady=(15, 10))
+        
+        row_colors = ("#eaeaea", "#262626")
+        
+        # Card 1: Asistencias
+        c1 = ctk.CTkFrame(stats_frame, fg_color=row_colors, border_color=("#10b981", "#059669"), border_width=1, corner_radius=8, height=65)
+        c1.pack(side="left", fill="both", expand=True, padx=5)
+        c1.pack_propagate(False)
+        self.lbl_stat_asis = ctk.CTkLabel(c1, text="Asistencias\n0", font=ctk.CTkFont(size=13, weight="bold"), text_color=("#047857", "#10b981"))
+        self.lbl_stat_asis.pack(expand=True)
+        
+        # Card 2: Retrasos
+        c2 = ctk.CTkFrame(stats_frame, fg_color=row_colors, border_color=("#3b82f6", "#2563eb"), border_width=1, corner_radius=8, height=65)
+        c2.pack(side="left", fill="both", expand=True, padx=5)
+        c2.pack_propagate(False)
+        self.lbl_stat_retr = ctk.CTkLabel(c2, text="Retrasos\n0", font=ctk.CTkFont(size=13, weight="bold"), text_color=("#1d4ed8", "#3b82f6"))
+        self.lbl_stat_retr.pack(expand=True)
+        
+        # Card 3: Omitidos
+        c3 = ctk.CTkFrame(stats_frame, fg_color=row_colors, border_color=("#f59e0b", "#d97706"), border_width=1, corner_radius=8, height=65)
+        c3.pack(side="left", fill="both", expand=True, padx=5)
+        c3.pack_propagate(False)
+        self.lbl_stat_omit = ctk.CTkLabel(c3, text="Omitidos\n0", font=ctk.CTkFont(size=13, weight="bold"), text_color=("#b45309", "#f59e0b"))
+        self.lbl_stat_omit.pack(expand=True)
+        
+        # Log Text Box
         self.txt_log = ctk.CTkTextbox(parent, font=ctk.CTkFont(family="Consolas", size=12))
-        self.txt_log.pack(fill="both", expand=True, padx=20, pady=20)
+        self.txt_log.pack(fill="both", expand=True, padx=20, pady=(5, 10))
         self.txt_log.configure(state="disabled")
-        ctk.CTkButton(parent, text="Borrar historial", command=self.limpiar_log, fg_color="#dc2626", hover_color="#b91c1c").pack(pady=(0,20))
+        
+        # Load physical log file if exists
+        if LOG_FILE.exists():
+            try:
+                with open(LOG_FILE, "r", encoding="utf-8") as f:
+                    content = f.read()
+                self.txt_log.configure(state="normal")
+                self.txt_log.insert("end", content)
+                self.txt_log.see("end")
+                self.txt_log.configure(state="disabled")
+            except Exception as e:
+                print(f"Error loading log file: {e}")
+                
+        self._cargar_estadisticas()
+        
+        ctk.CTkButton(parent, text="Borrar historial", command=self.limpiar_log, fg_color="#dc2626", hover_color="#b91c1c").pack(pady=(0,15))
 
     def _tab_ajustes(self, parent):
         ctk.CTkLabel(parent, text="Ajustes del programa", font=ctk.CTkFont(size=18, weight="bold")).pack(pady=(15, 10))
@@ -380,8 +465,6 @@ class AbreCursosApp:
         adj_scroll = ctk.CTkScrollableFrame(parent, fg_color="transparent")
         adj_scroll.pack(fill="both", expand=True, padx=20, pady=5)
 
-        # Dynamic dynamic-theme colors: ("LightModeColor", "DarkModeColor")
-        # Prevents ugly white background when running in dark mode/system mode
         row_colors = ("#eaeaea", "#262626")
         
         # 1. Modo vacaciones
@@ -419,7 +502,18 @@ class AbreCursosApp:
         self.opt_notif.set(notif_str)
         ToolTip(self.opt_notif, "Establece el tiempo de antelación para recibir la notificación de Windows.")
 
-        # 4. Auto-inicio con Windows
+        # 4. Sonido de Notificación
+        s_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
+        s_frm.pack(fill="x", pady=6, ipady=4)
+        ctk.CTkLabel(s_frm, text="🎵 Sonido de Alerta:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
+        
+        sound_sel = self.datos.get("settings", {}).get("notif_sonido", "Reminder")
+        self.opt_sonido = ctk.CTkOptionMenu(s_frm, values=["Reminder", "Alarm", "SMS", "Mail", "Silencioso"], command=self.cambiar_sonido)
+        self.opt_sonido.pack(side="right", padx=20)
+        self.opt_sonido.set(sound_sel)
+        ToolTip(self.opt_sonido, "Personaliza el tono de Windows que se reproduce al avisarte de la clase.")
+
+        # 5. Auto-inicio con Windows
         a_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
         a_frm.pack(fill="x", pady=6, ipady=4)
         ctk.CTkLabel(a_frm, text="⚙️ Auto-inicio con Windows:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
@@ -429,7 +523,7 @@ class AbreCursosApp:
             self.sw_autostart.select()
         ToolTip(self.sw_autostart, "Hacer que Abre-Cursos Pro inicie automáticamente en segundo plano cuando Windows inicie.")
 
-        # 5. Apariencia
+        # 6. Apariencia
         c_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
         c_frm.pack(fill="x", pady=6, ipady=4)
         ctk.CTkLabel(c_frm, text="🎨 Apariencia de Interfaz:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
@@ -439,7 +533,7 @@ class AbreCursosApp:
         theme_menu.set("System")
         ToolTip(theme_menu, "Alterna entre el tema del sistema, modo oscuro o modo claro.")
 
-        # 6. Actualizaciones
+        # 7. Actualizaciones
         up_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
         up_frm.pack(fill="x", pady=6, ipady=4)
         ctk.CTkLabel(up_frm, text="🔄 Actualizaciones de Software:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
@@ -447,7 +541,7 @@ class AbreCursosApp:
         btn_update.pack(side="right", padx=20)
         ToolTip(btn_update, "Busca nuevas versiones en el servidor/repositorio remoto e instala la actualización si está disponible.")
 
-        # 7. Importar / Exportar
+        # 8. Importar / Exportar
         ie_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
         ie_frm.pack(fill="x", pady=6, ipady=4)
         ctk.CTkLabel(ie_frm, text="📁 Copia de Seguridad:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
@@ -460,7 +554,7 @@ class AbreCursosApp:
         btn_imp.pack(side="right", padx=5)
         ToolTip(btn_imp, "Importa una base de datos de horarios JSON externa, reemplazando la actual.")
 
-        # 8. Desinstalación
+        # 9. Desinstalación
         u_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
         u_frm.pack(fill="x", pady=6, ipady=4)
         ctk.CTkLabel(u_frm, text="❌ Desinstalación completa:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
@@ -468,58 +562,12 @@ class AbreCursosApp:
         btn_un.pack(side="right", padx=20)
         ToolTip(btn_un, "Elimina la aplicación, tus cursos guardados y los accesos directos de tu equipo.")
 
-    def buscar_actualizacion_manual(self):
-        self.agregar_log("Buscando actualización manualmente...")
-        threading.Thread(target=check_for_updates, args=(False, self), daemon=True).start()
-
-    def mostrar_ventana_actualizacion(self, version_nueva, download_url, changelog):
-        if messagebox.askyesno("Nueva versión disponible", 
-                               f"Se ha encontrado una nueva versión de Abre-Cursos Pro (v{version_nueva}).\n\n"
-                               f"Cambios:\n{changelog}\n\n"
-                               f"¿Deseas descargar e instalar esta actualización ahora?"):
-            self.iniciar_descarga_actualizacion(download_url)
-
-    def iniciar_descarga_actualizacion(self, download_url):
-        self.agregar_log("Iniciando descarga de actualización...")
-        threading.Thread(target=self._descargar_y_reemplazar, args=(download_url,), daemon=True).start()
-
-    def _descargar_y_reemplazar(self, download_url):
-        try:
-            import tempfile
-            import subprocess
-            
-            temp_dir = Path(tempfile.gettempdir())
-            temp_exe = temp_dir / "AbreCursos_temp.exe"
-            
-            self.agregar_log("Descargando nuevo ejecutable...")
-            req = urllib.request.Request(download_url, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=30) as response:
-                with open(temp_exe, "wb") as f:
-                    f.write(response.read())
-            
-            self.agregar_log("Descarga completada. Preparando reemplazo...")
-            
-            current_exe = Path(sys.argv[0])
-            if getattr(sys, 'frozen', False):
-                current_exe = Path(sys.executable)
-            
-            bat_path = temp_dir / "update_replace.bat"
-            bat_content = f"""@echo off
-ping 127.0.0.1 -n 3 > nul
-copy /y "{temp_exe}" "{current_exe}"
-start "" "{current_exe}"
-del /f /q "{temp_exe}"
-(goto) 2>nul & del "%~f0"
-"""
-            bat_path.write_text(bat_content, encoding="utf-8")
-            
-            self.agregar_log("Ejecutando reemplazo y reiniciando programa...")
-            subprocess.Popen(str(bat_path), shell=True, creationflags=0x08000000)
-            self.root.after(0, lambda: os._exit(0))
-            
-        except Exception as e:
-            self.agregar_log(f"Error al actualizar: {e}")
-            self.root.after(0, lambda: messagebox.showerror("Error de actualización", f"Ocurrió un error al instalar la actualización:\n{e}"))
+    def cambiar_sonido(self, val):
+        with data_lock:
+            if "settings" not in self.datos: self.datos["settings"] = {}
+            self.datos["settings"]["notif_sonido"] = val
+            guardar_datos(self.datos)
+        self.agregar_log(f"Sonido de notificaciones actualizado a {val}.")
 
     def desinstalar(self):
         if not messagebox.askyesno("Confirmar Desinstalación", "Estás a punto de desinstalar el programa por completo.\nEsto borrará tus horarios y eliminará la aplicación de tu PC.\n\n¿Estás seguro de continuar?"):
@@ -556,6 +604,23 @@ rmdir /s /q "{appdata}"
         else:
             self.lbl_vacaciones.pack_forget()
             self.agregar_log("Modo Vacaciones DESACTIVADO. Los cursos se abrirán normalmente.")
+
+    def toggle_vacaciones_tray(self):
+        current = self.datos.get("settings", {}).get("vacaciones", False)
+        new_state = not current
+        with data_lock:
+            if "settings" not in self.datos: self.datos["settings"] = {}
+            self.datos["settings"]["vacaciones"] = new_state
+            guardar_datos(self.datos)
+        
+        if new_state:
+            self.sw_vacaciones.select()
+            self.lbl_vacaciones.pack(anchor="w")
+            self.agregar_log("Modo Vacaciones ACTIVADO (desde la bandeja).")
+        else:
+            self.sw_vacaciones.deselect()
+            self.lbl_vacaciones.pack_forget()
+            self.agregar_log("Modo Vacaciones DESACTIVADO (desde la bandeja).")
 
     def cambiar_tolerancia(self, val):
         with data_lock:
@@ -630,7 +695,7 @@ rmdir /s /q "{appdata}"
                 
                 if not isinstance(data, dict) or "cursos" not in data:
                     if isinstance(data, list):
-                        data = {"version": 2, "settings": {"vacaciones": False, "tolerancia_min": 30, "notif_anticipacion": 5}, "cursos": data}
+                        data = {"version": 2, "settings": {"vacaciones": False, "tolerancia_min": 30, "notif_anticipacion": 5, "notif_sonido": "Reminder"}, "cursos": data}
                     else:
                         raise ValueError("Formato JSON no válido.")
                 
@@ -650,6 +715,9 @@ rmdir /s /q "{appdata}"
                     
                     ant = self.datos.get("settings", {}).get("notif_anticipacion", 5)
                     self.opt_notif.set("Desactivado" if ant == 0 else f"{ant} min")
+                    
+                    sonido = self.datos.get("settings", {}).get("notif_sonido", "Reminder")
+                    self.opt_sonido.set(sonido)
                     
                     messagebox.showinfo("Éxito", "Cursos importados correctamente.")
             except Exception as e:
@@ -677,6 +745,26 @@ rmdir /s /q "{appdata}"
         if not url.startswith("http") and not url.startswith("zoommtg") and not url.startswith("msteams"): 
             url = "https://" + url
 
+        # Conflict check
+        hora_str = self.v_hora.get()
+        min_str = self.v_min.get()
+        conflictos = []
+        with data_lock:
+            for c in self.datos.get("cursos", []):
+                if self.editing_id and c["id"] == self.editing_id:
+                    continue
+                if c["hora"] == hora_str and c["minuto"] == min_str:
+                    common_days = set(dias).intersection(c.get("dias", []))
+                    if common_days:
+                        conflictos.append(c["nombre"])
+                        
+        if conflictos:
+            conf_names = ", ".join(conflictos)
+            if not messagebox.askyesno("Conflicto de Horario", 
+                                       f"Atención: Ya tienes programado el curso '{conf_names}' en ese mismo horario y día.\n\n"
+                                       f"¿Deseas guardar de todas formas?"):
+                return
+
         with data_lock:
             if self.editing_id:
                 for c in self.datos.get("cursos", []):
@@ -703,6 +791,13 @@ rmdir /s /q "{appdata}"
         for v in self.v_dias: v.set(False)
 
     def agregar_log(self, texto):
+        # Write to physical file log
+        try:
+            with open(LOG_FILE, "a", encoding="utf-8") as f:
+                f.write(texto + "\n")
+        except Exception as e:
+            print(f"Error writing to log file: {e}")
+            
         self.log_lines.append(texto)
         self.root.after(0, self._flush_log)
 
@@ -713,11 +808,19 @@ rmdir /s /q "{appdata}"
         self.txt_log.see("end")
         self.txt_log.configure(state="disabled")
         self.log_lines.clear()
+        self._cargar_estadisticas()
 
     def limpiar_log(self):
-        self.txt_log.configure(state="normal")
-        self.txt_log.delete("1.0", "end")
-        self.txt_log.configure(state="disabled")
+        if messagebox.askyesno("Confirmar", "¿Estás seguro de borrar todo el historial y reiniciar las estadísticas?"):
+            if LOG_FILE.exists():
+                try:
+                    os.remove(LOG_FILE)
+                except Exception as e:
+                    print(f"Error removing log file: {e}")
+            self.txt_log.configure(state="normal")
+            self.txt_log.delete("1.0", "end")
+            self.txt_log.configure(state="disabled")
+            self._cargar_estadisticas()
 
     def ocultar(self): self.root.withdraw()
     def mostrar(self): self.root.deiconify(); self.root.lift()
@@ -778,6 +881,48 @@ rmdir /s /q "{appdata}"
         self.lbl_reloj.configure(text=f"{now.strftime('%H:%M:%S')}  {DIAS_FULL[dia_idx]}\n{next_lbl}")
         self.root.after(1000, self._tick)
 
+def get_menu_items(app):
+    items = []
+    items.append(pystray.MenuItem("Abrir ventana", lambda icon, item: app.root.after(0, app.mostrar), default=True))
+    
+    # Toggle Vacaciones
+    vac_text = "🏖️ Desactivar Vacaciones" if app.datos.get("settings", {}).get("vacaciones", False) else "🏖️ Activar Vacaciones"
+    items.append(pystray.MenuItem(vac_text, lambda icon, item: app.root.after(0, app.toggle_vacaciones_tray)))
+    
+    items.append(pystray.Menu.SEPARATOR)
+    
+    # Next class info
+    next_lbl = app._get_next_class_info()
+    items.append(pystray.MenuItem(next_lbl, lambda icon, item: None, enabled=False))
+    
+    items.append(pystray.Menu.SEPARATOR)
+    
+    # Today's courses list
+    now = datetime.now()
+    day_idx = (now.weekday() + 1) % 7
+    with data_lock:
+        cursos_hoy = [c for c in app.datos.get("cursos", []) if day_idx in c.get("dias", [])]
+        
+    if cursos_hoy:
+        items.append(pystray.MenuItem("Clases de hoy:", lambda icon, item: None, enabled=False))
+        for c in sorted(cursos_hoy, key=lambda x: (x["hora"], x["minuto"])):
+            status = "⏰" if c.get("activo", True) else "⏸️"
+            c_text = f"  {status} {c['hora']}:{c['minuto']} - {c['nombre']}"
+            items.append(pystray.MenuItem(
+                c_text, 
+                lambda icon, item, url=c["url"], nom=c["nombre"]: app.root.after(0, lambda: app._abrir_manualmente(url, nom))
+            ))
+    else:
+        items.append(pystray.MenuItem("No hay clases hoy", lambda icon, item: None, enabled=False))
+        
+    items.append(pystray.Menu.SEPARATOR)
+    items.append(pystray.MenuItem("Salir", lambda icon, item: on_quit(icon, app)))
+    return items
+
+def on_quit(icon, app):
+    icon.stop()
+    app.root.after(0, app.root.destroy)
+
 def run_tray(app):
     try:
         import pystray
@@ -796,9 +941,7 @@ def run_tray(app):
             d.rectangle([8,8,56,56], fill="#14375e")
             d.text((16, 20), "AC", fill="white")
             
-        def on_show(icon, item): app.root.after(0, app.mostrar)
-        def on_quit(icon, item): icon.stop(); app.root.after(0, app.root.destroy)
-        icon = pystray.Icon("AbreCursos", img, "Abre-Cursos", menu=pystray.Menu(pystray.MenuItem("Abrir ventana", on_show, default=True), pystray.MenuItem("Salir", on_quit)))
+        icon = pystray.Icon("AbreCursos", img, "Abre-Cursos", menu=pystray.Menu(lambda: get_menu_items(app)))
         icon.run()
     except ImportError: pass
 
