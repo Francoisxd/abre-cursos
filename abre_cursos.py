@@ -27,7 +27,7 @@ from pathlib import Path
 from winotify import Notification, audio
 
 # Versión del programa y repositorio
-VERSION = "2.1.0"
+VERSION = "2.1.5"
 GITHUB_USER = "Francoisxd"
 GITHUB_REPO = "abre-cursos"
 
