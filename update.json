@@ -1,5 +1,5 @@
 {
-  "version": "2.1.7",
+  "version": "2.1.8",
   "url": "https://github.com/Francoisxd/abre-cursos/raw/main/AbreCursos.zip",
-  "changelog": "Versión 2.1.7: Cambiado a distribución por carpetas (onedir), agregado soporte de actualizaciones en ZIP y barra de progreso."
+  "changelog": "Versión 2.1.8: Agregado selector de navegador personalizado en Ajustes y barra de búsqueda en la lista de cursos."
 }

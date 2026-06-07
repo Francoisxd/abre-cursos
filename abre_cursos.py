@@ -26,9 +26,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from winotify import Notification, audio
 import pystray
+import subprocess
 
 # Versión del programa y repositorio
-VERSION = "2.1.7"
+VERSION = "2.1.8"
 GITHUB_USER = "Francoisxd"
 GITHUB_REPO = "abre-cursos"
 
@@ -133,6 +134,51 @@ def optimizar_url(url):
         except: return url
     return url
 
+def abrir_en_navegador(url, app=None):
+    if app:
+        browser_choice = app.datos.get("settings", {}).get("browser", "Predeterminado")
+    else:
+        browser_choice = "Predeterminado"
+
+    if url.startswith(("zoommtg://", "msteams://")):
+        webbrowser.open(url)
+        return
+
+    if browser_choice == "Predeterminado":
+        webbrowser.open(url)
+    elif browser_choice == "Chrome":
+        try:
+            subprocess.Popen(["cmd.exe", "/c", "start", "chrome", url], creationflags=0x08000000)
+        except Exception:
+            webbrowser.open(url)
+    elif browser_choice == "Edge":
+        try:
+            subprocess.Popen(["cmd.exe", "/c", "start", "msedge", url], creationflags=0x08000000)
+        except Exception:
+            webbrowser.open(url)
+    elif browser_choice == "Firefox":
+        try:
+            subprocess.Popen(["cmd.exe", "/c", "start", "firefox", url], creationflags=0x08000000)
+        except Exception:
+            webbrowser.open(url)
+    elif browser_choice == "Brave":
+        try:
+            import winreg
+            brave_path = None
+            for hive in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
+                try:
+                    with winreg.OpenKey(hive, r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\brave.exe") as key:
+                        brave_path = winreg.QueryValue(key, None)
+                        break
+                except FileNotFoundError:
+                    continue
+            if brave_path:
+                subprocess.Popen([brave_path, url])
+            else:
+                subprocess.Popen(["cmd.exe", "/c", "start", "brave", url], creationflags=0x08000000)
+        except Exception:
+            webbrowser.open(url)
+
 fired_today = {}
 notified_today = {}
 
@@ -188,7 +234,7 @@ def scheduler_loop(app):
                     continue
                     
                 final_url = optimizar_url(curso["url"])
-                webbrowser.open(final_url)
+                abrir_en_navegador(final_url, app)
                 extra = f" (con {diff} min de retraso)" if diff > 0 else ""
                 app.agregar_log(f"Abierto: {curso['nombre']}{extra} ({now.strftime('%d/%m/%Y %H:%M')})")
         time.sleep(15)
@@ -294,6 +340,13 @@ class AbreCursosApp:
         lf = ctk.CTkFrame(parent)
         lf.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         
+        # Buscador
+        sf = ctk.CTkFrame(lf, fg_color="transparent")
+        sf.pack(fill="x", padx=5, pady=(5, 0))
+        self.ent_search = ctk.CTkEntry(sf, placeholder_text="🔍 Buscar curso por nombre...", font=ctk.CTkFont(size=13))
+        self.ent_search.pack(fill="x")
+        self.ent_search.bind("<KeyRelease>", lambda e: self.refrescar_lista())
+        
         self.scroll_frame = ctk.CTkScrollableFrame(lf, fg_color="transparent")
         self.scroll_frame.pack(fill="both", expand=True, padx=5, pady=5)
         
@@ -328,7 +381,7 @@ class AbreCursosApp:
         is_zoom_or_teams = "zoom" in c["url"].lower() or "teams" in c["url"].lower()
         lbl_url = ctk.CTkLabel(details_frame, text=f"🔗 {url_text}", font=ctk.CTkFont(size=11), text_color="#10b981" if is_zoom_or_teams else "gray", anchor="w", cursor="hand2")
         lbl_url.pack(fill="x", pady=(2, 0))
-        lbl_url.bind("<Button-1>", lambda e, u=c["url"]: webbrowser.open(optimizar_url(u)))
+        lbl_url.bind("<Button-1>", lambda e, u=c["url"]: abrir_en_navegador(optimizar_url(u), self))
         ToolTip(lbl_url, "Hacer clic para abrir este enlace directamente en tu navegador.")
 
         # Actions
@@ -364,7 +417,7 @@ class AbreCursosApp:
 
     def _abrir_manualmente(self, url, nombre):
         final_url = optimizar_url(url)
-        webbrowser.open(final_url)
+        abrir_en_navegador(final_url, self)
         self.agregar_log(f"Abierto manualmente: {nombre} ({datetime.now().strftime('%d/%m/%Y %H:%M')})")
 
     def _editar_by_id(self, c_id):
@@ -535,7 +588,17 @@ class AbreCursosApp:
         theme_menu.set("System")
         ToolTip(theme_menu, "Alterna entre el tema del sistema, modo oscuro o modo claro.")
 
-        # 7. Actualizaciones
+        # 7. Navegador para clases
+        b_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
+        b_frm.pack(fill="x", pady=6, ipady=4)
+        ctk.CTkLabel(b_frm, text="🌐 Navegador para clases:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
+        browser_sel = self.datos.get("settings", {}).get("browser", "Predeterminado")
+        self.opt_browser = ctk.CTkOptionMenu(b_frm, values=["Predeterminado", "Chrome", "Edge", "Firefox", "Brave"], command=self.cambiar_navegador)
+        self.opt_browser.pack(side="right", padx=20)
+        self.opt_browser.set(browser_sel)
+        ToolTip(self.opt_browser, "Selecciona el navegador web en el que se abrirán los enlaces de tus clases.")
+
+        # 8. Actualizaciones
         up_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
         up_frm.pack(fill="x", pady=6, ipady=4)
         ctk.CTkLabel(up_frm, text="🔄 Actualizaciones de Software:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
@@ -543,7 +606,7 @@ class AbreCursosApp:
         btn_update.pack(side="right", padx=20)
         ToolTip(btn_update, "Busca nuevas versiones en el servidor/repositorio remoto e instala la actualización si está disponible.")
 
-        # 8. Importar / Exportar
+        # 9. Importar / Exportar
         ie_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
         ie_frm.pack(fill="x", pady=6, ipady=4)
         ctk.CTkLabel(ie_frm, text="📁 Copia de Seguridad:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
@@ -556,7 +619,7 @@ class AbreCursosApp:
         btn_imp.pack(side="right", padx=5)
         ToolTip(btn_imp, "Importa una base de datos de horarios JSON externa, reemplazando la actual.")
 
-        # 9. Desinstalación
+        # 10. Desinstalación
         u_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
         u_frm.pack(fill="x", pady=6, ipady=4)
         ctk.CTkLabel(u_frm, text="❌ Desinstalación completa:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
@@ -570,6 +633,13 @@ class AbreCursosApp:
             self.datos["settings"]["notif_sonido"] = val
             guardar_datos(self.datos)
         self.agregar_log(f"Sonido de notificaciones actualizado a {val}.")
+
+    def cambiar_navegador(self, val):
+        with data_lock:
+            if "settings" not in self.datos: self.datos["settings"] = {}
+            self.datos["settings"]["browser"] = val
+            guardar_datos(self.datos)
+        self.agregar_log(f"Navegador de clases actualizado a {val}.")
 
     def buscar_actualizacion_manual(self):
         threading.Thread(target=check_for_updates, args=(False, self), daemon=True).start()
@@ -841,6 +911,9 @@ rmdir /s /q "{appdata}"
                     sonido = self.datos.get("settings", {}).get("notif_sonido", "Reminder")
                     self.opt_sonido.set(sonido)
                     
+                    browser = self.datos.get("settings", {}).get("browser", "Predeterminado")
+                    self.opt_browser.set(browser)
+                    
                     messagebox.showinfo("Éxito", "Cursos importados correctamente.")
             except Exception as e:
                 messagebox.showerror("Error", f"No se pudo importar: {e}")
@@ -857,7 +930,22 @@ rmdir /s /q "{appdata}"
             lbl.pack(pady=40)
             return
 
+        query = ""
+        if hasattr(self, 'ent_search'):
+            query = self.ent_search.get().lower().strip()
+
+        filtered_cursos = []
         for c in cursos:
+            if query and query not in c["nombre"].lower():
+                continue
+            filtered_cursos.append(c)
+
+        if not filtered_cursos:
+            lbl = ctk.CTkLabel(self.scroll_frame, text="No se encontraron cursos que coincidan con la búsqueda.", font=ctk.CTkFont(size=13, slant="italic"), text_color="gray")
+            lbl.pack(pady=40)
+            return
+
+        for c in filtered_cursos:
             card = self._create_course_card(self.scroll_frame, c)
             card.pack(fill="x", padx=10, pady=5)
 
