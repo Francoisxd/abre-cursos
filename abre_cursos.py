@@ -569,6 +569,94 @@ class AbreCursosApp:
             guardar_datos(self.datos)
         self.agregar_log(f"Sonido de notificaciones actualizado a {val}.")
 
+    def buscar_actualizacion_manual(self):
+        threading.Thread(target=check_for_updates, args=(False, self), daemon=True).start()
+
+    def mostrar_ventana_actualizacion(self, latest_version, download_url, changelog):
+        up_win = ctk.CTkToplevel(self.root)
+        up_win.title("Actualización disponible")
+        up_win.geometry("500x350")
+        up_win.grab_set()
+        up_win.after(200, lambda: up_win.focus_force())
+        
+        # Center window
+        up_win.update_idletasks()
+        width = up_win.winfo_width()
+        height = up_win.winfo_height()
+        x = (up_win.winfo_screenwidth() // 2) - (width // 2)
+        y = (up_win.winfo_screenheight() // 2) - (height // 2)
+        up_win.geometry(f'{width}x{height}+{x}+{y}')
+        
+        # UI Elements
+        ctk.CTkLabel(up_win, text="🚀 ¡Nueva versión disponible!", font=ctk.CTkFont(size=18, weight="bold")).pack(pady=(20, 10))
+        
+        info_text = f"Tu versión actual: v{VERSION}\nÚltima versión disponible: v{latest_version}"
+        ctk.CTkLabel(up_win, text=info_text, font=ctk.CTkFont(size=13)).pack(pady=5)
+        
+        ctk.CTkLabel(up_win, text="Cambios en esta versión:", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=30, pady=(10, 2))
+        
+        txt_changelog = ctk.CTkTextbox(up_win, height=120)
+        txt_changelog.pack(fill="both", expand=True, padx=30, pady=(0, 20))
+        txt_changelog.insert("1.0", changelog)
+        txt_changelog.configure(state="disabled")
+        
+        btn_frame = ctk.CTkFrame(up_win, fg_color="transparent")
+        btn_frame.pack(fill="x", pady=(0, 20))
+        
+        def iniciar_actualizacion():
+            if not getattr(sys, 'frozen', False):
+                messagebox.showinfo("Aviso", "Estás ejecutando desde el script de Python. Para actualizar de forma automática, debes usar el ejecutable compilado (.exe).")
+                up_win.destroy()
+                return
+                
+            btn_actualizar.configure(state="disabled", text="Descargando...")
+            btn_omitir.configure(state="disabled")
+            
+            def run_download():
+                try:
+                    import tempfile
+                    import subprocess
+                    import urllib.request
+                    
+                    exe_actual = Path(sys.executable)
+                    temp_exe = Path(tempfile.gettempdir()) / "AbreCursos_new.exe"
+                    
+                    req = urllib.request.Request(download_url, headers={'User-Agent': 'Mozilla/5.0'})
+                    with urllib.request.urlopen(req, timeout=30) as response:
+                        with open(temp_exe, "wb") as out_file:
+                            out_file.write(response.read())
+                            
+                    bat_path = Path(tempfile.gettempdir()) / "update_abrecursos.bat"
+                    script = f"""@echo off
+ping 127.0.0.1 -n 3 > nul
+:loop
+del /f /q "{exe_actual}"
+if exist "{exe_actual}" (
+    ping 127.0.0.1 -n 2 > nul
+    goto loop
+)
+copy /y "{temp_exe}" "{exe_actual}"
+del /f /q "{temp_exe}"
+start "" "{exe_actual}"
+(goto) 2>nul & del "%~f0"
+"""
+                    bat_path.write_text(script, encoding="utf-8")
+                    subprocess.Popen(str(bat_path), shell=True, creationflags=0x08000000)
+                    os._exit(0)
+                    
+                except Exception as e:
+                    self.root.after(0, lambda: messagebox.showerror("Error de actualización", f"No se pudo descargar la nueva versión:\n{e}"))
+                    self.root.after(0, lambda: btn_actualizar.configure(state="normal", text="Actualizar ahora"))
+                    self.root.after(0, lambda: btn_omitir.configure(state="normal"))
+            
+            threading.Thread(target=run_download, daemon=True).start()
+
+        btn_omitir = ctk.CTkButton(btn_frame, text="Más tarde", fg_color="gray", hover_color="#555555", width=120, command=up_win.destroy)
+        btn_omitir.pack(side="left", padx=(50, 10), expand=True)
+        
+        btn_actualizar = ctk.CTkButton(btn_frame, text="Actualizar ahora", fg_color="#7c3aed", hover_color="#6d28d9", width=120, command=iniciar_actualizacion)
+        btn_actualizar.pack(side="right", padx=(10, 50), expand=True)
+
     def desinstalar(self):
         if not messagebox.askyesno("Confirmar Desinstalación", "Estás a punto de desinstalar el programa por completo.\nEsto borrará tus horarios y eliminará la aplicación de tu PC.\n\n¿Estás seguro de continuar?"):
             return
