@@ -5,7 +5,7 @@ Abre-Cursos Pro - Automatizador de clases por horario
 - Evasión de pestañas basura de Zoom y MS Teams
 - Tarjetas interactivas con botones legibles y Tooltips
 - Actualizaciones automáticas y manuales integradas
-- Thread-safe Lock y Mejoras de alineación visual
+- Hilos seguros y soporte total de temas dinámicos (Tuplas de color)
 """
 
 import json
@@ -25,8 +25,8 @@ from winotify import Notification, audio
 
 # Versión del programa y repositorio
 VERSION = "2.1.0"
-GITHUB_USER = "FrancoisFlores"       # Cambia por tu usuario real de GitHub
-GITHUB_REPO = "abre-cursos"  # Cambia por tu repositorio real
+GITHUB_USER = "Francoisxd"
+GITHUB_REPO = "abre-cursos"
 
 # Rutas
 if getattr(sys, 'frozen', False):
@@ -281,10 +281,7 @@ class AbreCursosApp:
     def _create_course_card(self, parent, c):
         is_active = c.get("activo", True)
         
-        card_fg = "#262626" if ctk.get_appearance_mode() == "Dark" else "#f5f5f5"
-        card_border = "#404040" if ctk.get_appearance_mode() == "Dark" else "#e5e5e5"
-        
-        card = ctk.CTkFrame(parent, fg_color=card_fg, border_color=card_border, border_width=1, corner_radius=10)
+        card = ctk.CTkFrame(parent, fg_color=("#f5f5f5", "#262626"), border_color=("#e5e5e5", "#404040"), border_width=1, corner_radius=10)
         
         # Details container
         details_frame = ctk.CTkFrame(card, fg_color="transparent")
@@ -293,11 +290,7 @@ class AbreCursosApp:
         top_line = ctk.CTkFrame(details_frame, fg_color="transparent")
         top_line.pack(fill="x", anchor="w")
         
-        title_color = "#ffffff" if ctk.get_appearance_mode() == "Dark" else "#171717"
-        if not is_active:
-            title_color = "gray"
-            
-        lbl_nombre = ctk.CTkLabel(top_line, text=c["nombre"], font=ctk.CTkFont(size=14, weight="bold"), text_color=title_color, anchor="w")
+        lbl_nombre = ctk.CTkLabel(top_line, text=c["nombre"], font=ctk.CTkFont(size=14, weight="bold"), text_color=("#171717", "#ffffff") if is_active else "gray", anchor="w")
         lbl_nombre.pack(side="left")
         
         lbl_hora = ctk.CTkLabel(top_line, text=f" ⏰ {c['hora']}:{c['minuto']} ", font=ctk.CTkFont(size=11, weight="bold"), fg_color="#3b82f6" if is_active else "gray", text_color="white", corner_radius=6)
@@ -387,10 +380,12 @@ class AbreCursosApp:
         adj_scroll = ctk.CTkScrollableFrame(parent, fg_color="transparent")
         adj_scroll.pack(fill="both", expand=True, padx=20, pady=5)
 
-        row_fg = "#2e2e2e" if ctk.get_appearance_mode() == "Dark" else "#eaeaea"
+        # Dynamic dynamic-theme colors: ("LightModeColor", "DarkModeColor")
+        # Prevents ugly white background when running in dark mode/system mode
+        row_colors = ("#eaeaea", "#262626")
         
         # 1. Modo vacaciones
-        v_frm = ctk.CTkFrame(adj_scroll, fg_color=row_fg, corner_radius=8)
+        v_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
         v_frm.pack(fill="x", pady=6, ipady=4)
         ctk.CTkLabel(v_frm, text="🏖️ Modo Vacaciones:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
         self.sw_vacaciones = ctk.CTkSwitch(v_frm, text="Desactivar cursos temporalmente", command=self.toggle_vacaciones, font=ctk.CTkFont(size=13))
@@ -399,7 +394,7 @@ class AbreCursosApp:
         ToolTip(self.sw_vacaciones, "Habilita este modo para pausar temporalmente todas las clases automáticas (ej: vacaciones).")
 
         # 2. Tolerancia
-        t_frm = ctk.CTkFrame(adj_scroll, fg_color=row_fg, corner_radius=8)
+        t_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
         t_frm.pack(fill="x", pady=6, ipady=4)
         ctk.CTkLabel(t_frm, text="⏳ Tolerancia de retraso:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
         
@@ -413,7 +408,7 @@ class AbreCursosApp:
         ToolTip(self.opt_tolerancia, "Configura cuántos minutos después de la hora programada se puede seguir abriendo la clase.")
 
         # 3. Notificaciones anticipación
-        n_frm = ctk.CTkFrame(adj_scroll, fg_color=row_fg, corner_radius=8)
+        n_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
         n_frm.pack(fill="x", pady=6, ipady=4)
         ctk.CTkLabel(n_frm, text="🔔 Notificar antes de empezar:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
         
@@ -425,7 +420,7 @@ class AbreCursosApp:
         ToolTip(self.opt_notif, "Establece el tiempo de antelación para recibir la notificación de Windows.")
 
         # 4. Auto-inicio con Windows
-        a_frm = ctk.CTkFrame(adj_scroll, fg_color=row_fg, corner_radius=8)
+        a_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
         a_frm.pack(fill="x", pady=6, ipady=4)
         ctk.CTkLabel(a_frm, text="⚙️ Auto-inicio con Windows:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
         self.sw_autostart = ctk.CTkSwitch(a_frm, text="Ejecutar al encender el PC", command=self.toggle_autostart, font=ctk.CTkFont(size=13))
@@ -435,7 +430,7 @@ class AbreCursosApp:
         ToolTip(self.sw_autostart, "Hacer que Abre-Cursos Pro inicie automáticamente en segundo plano cuando Windows inicie.")
 
         # 5. Apariencia
-        c_frm = ctk.CTkFrame(adj_scroll, fg_color=row_fg, corner_radius=8)
+        c_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
         c_frm.pack(fill="x", pady=6, ipady=4)
         ctk.CTkLabel(c_frm, text="🎨 Apariencia de Interfaz:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
         def change_appearance(mode): ctk.set_appearance_mode(mode); self.refrescar_lista()
@@ -445,7 +440,7 @@ class AbreCursosApp:
         ToolTip(theme_menu, "Alterna entre el tema del sistema, modo oscuro o modo claro.")
 
         # 6. Actualizaciones
-        up_frm = ctk.CTkFrame(adj_scroll, fg_color=row_fg, corner_radius=8)
+        up_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
         up_frm.pack(fill="x", pady=6, ipady=4)
         ctk.CTkLabel(up_frm, text="🔄 Actualizaciones de Software:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
         btn_update = ctk.CTkButton(up_frm, text="Buscar Actualización", fg_color="#7c3aed", hover_color="#6d28d9", font=ctk.CTkFont(size=12, weight="bold"), width=150, command=self.buscar_actualizacion_manual)
@@ -453,7 +448,7 @@ class AbreCursosApp:
         ToolTip(btn_update, "Busca nuevas versiones en el servidor/repositorio remoto e instala la actualización si está disponible.")
 
         # 7. Importar / Exportar
-        ie_frm = ctk.CTkFrame(adj_scroll, fg_color=row_fg, corner_radius=8)
+        ie_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
         ie_frm.pack(fill="x", pady=6, ipady=4)
         ctk.CTkLabel(ie_frm, text="📁 Copia de Seguridad:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
         
@@ -466,7 +461,7 @@ class AbreCursosApp:
         ToolTip(btn_imp, "Importa una base de datos de horarios JSON externa, reemplazando la actual.")
 
         # 8. Desinstalación
-        u_frm = ctk.CTkFrame(adj_scroll, fg_color=row_fg, corner_radius=8)
+        u_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
         u_frm.pack(fill="x", pady=6, ipady=4)
         ctk.CTkLabel(u_frm, text="❌ Desinstalación completa:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
         btn_un = ctk.CTkButton(u_frm, text="Desinstalar Programa", fg_color="#dc2626", hover_color="#b91c1c", command=self.desinstalar)
