@@ -637,6 +637,8 @@ if exist "{exe_actual}" (
 )
 copy /y "{temp_exe}" "{exe_actual}"
 del /f /q "{temp_exe}"
+set _MEIPASS=
+set _MEIPASS2=
 start "" "{exe_actual}"
 (goto) 2>nul & del "%~f0"
 """
