@@ -1,0 +1,32 @@
+# Entornos virtuales y dependencias
+venv/
+.venv/
+env/
+ENV/
+
+# Carpetas de compilación (PyInstaller)
+build/
+dist/
+
+# Caché de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Archivos temporales o locales del sistema
+*.log
+*.txt
+cursos.json
+historial.log
+err.txt
+out.txt
+
+# IDEs y Editores
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
