@@ -1,5 +1,5 @@
 {
-  "version": "2.1.9",
+  "version": "2.2.0",
   "url": "https://github.com/Francoisxd/abre-cursos/raw/main/AbreCursos.zip",
-  "changelog": "Versión 2.1.9: Parche crítico que corrige el bloqueo de la aplicación al cambiar el tono de sonido u otras opciones en la pestaña Ajustes."
+  "changelog": "Versión 2.2.0: Rediseño estético premium con un nuevo reloj estilo cápsula en la barra superior, disposición vertical mejorada para el formulario de horarios e insignias dinámicas para plataformas (Zoom, Teams, Web) en tarjetas de cursos más delgadas y estilizadas."
 }

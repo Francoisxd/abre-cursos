@@ -29,7 +29,7 @@ import pystray
 import subprocess
 
 # Versión del programa y repositorio
-VERSION = "2.1.9"
+VERSION = "2.2.0"
 GITHUB_USER = "Francoisxd"
 GITHUB_REPO = "abre-cursos"
 
@@ -288,8 +288,28 @@ class AbreCursosApp:
         if self.datos.get("settings", {}).get("vacaciones", False):
             self.lbl_vacaciones.pack(anchor="w")
             
-        self.lbl_reloj = ctk.CTkLabel(hdr, text="", font=ctk.CTkFont(size=13, weight="bold"), justify="right")
-        self.lbl_reloj.pack(side="right", padx=20)
+        self.lbl_proxima = ctk.CTkLabel(lbl_title_frame, text="", font=ctk.CTkFont(size=12, slant="italic"), text_color="gray")
+        self.lbl_proxima.pack(anchor="w", pady=(2, 0))
+
+        # Reloj contenedor estilo cápsula
+        self.reloj_container = ctk.CTkFrame(
+            hdr,
+            fg_color=("#1e1e1e", "#121212"),
+            border_color=("#3b82f6", "#2563eb"),
+            border_width=2,
+            corner_radius=15,
+            height=38
+        )
+        self.reloj_container.pack(side="right", padx=20, pady=22)
+        self.reloj_container.pack_propagate(False)
+        
+        self.lbl_reloj = ctk.CTkLabel(
+            self.reloj_container,
+            text="",
+            font=ctk.CTkFont(family="Consolas", size=13, weight="bold"),
+            text_color=("#60a5fa", "#3b82f6")
+        )
+        self.lbl_reloj.pack(expand=True, padx=15)
 
         self.tabview = ctk.CTkTabview(self.root)
         self.tabview.pack(fill="both", expand=True, padx=20, pady=10)
@@ -309,32 +329,48 @@ class AbreCursosApp:
         self.v_min    = tk.StringVar(value="00")
         self.v_dias   = [tk.BooleanVar() for _ in range(7)]
 
+        # Row 0: Nombre de Asignatura (full width)
         r0 = ctk.CTkFrame(frm, fg_color="transparent")
-        r0.pack(fill="x", padx=10, pady=(10, 5))
-        ctk.CTkLabel(r0, text="Nombre:").pack(side="left", padx=(0,5))
-        ctk.CTkEntry(r0, textvariable=self.v_nombre, width=200, placeholder_text="Ej: Programación").pack(side="left", padx=(0,20))
-        ctk.CTkLabel(r0, text="Link (URL):").pack(side="left", padx=(0,5))
-        ctk.CTkEntry(r0, textvariable=self.v_url, width=300, placeholder_text="https://zoom.us/j/... o teams link").pack(side="left", fill="x", expand=True)
+        r0.pack(fill="x", padx=15, pady=(10, 5))
+        ctk.CTkLabel(r0, text="Nombre de Asignatura:", font=ctk.CTkFont(weight="bold")).pack(anchor="w")
+        ctk.CTkEntry(r0, textvariable=self.v_nombre, placeholder_text="Ej: Programación").pack(fill="x", pady=(2, 0))
 
+        # Row 1: Enlace de Clase (URL) (full width)
         r1 = ctk.CTkFrame(frm, fg_color="transparent")
-        r1.pack(fill="x", padx=10, pady=5)
-        ctk.CTkLabel(r1, text="Hora:").pack(side="left", padx=(0,5))
-        ctk.CTkComboBox(r1, variable=self.v_hora, values=[str(h).zfill(2) for h in range(24)], width=70).pack(side="left")
-        ctk.CTkLabel(r1, text=":", font=ctk.CTkFont(weight="bold")).pack(side="left", padx=5)
-        ctk.CTkComboBox(r1, variable=self.v_min, values=[str(m).zfill(2) for m in range(0, 60, 5)], width=70).pack(side="left", padx=(0,20))
-        ctk.CTkLabel(r1, text="Días:").pack(side="left", padx=(0,10))
-        for i, d in enumerate(DIAS): ctk.CTkCheckBox(r1, text=d, variable=self.v_dias[i], width=60).pack(side="left", padx=2)
+        r1.pack(fill="x", padx=15, pady=5)
+        ctk.CTkLabel(r1, text="Enlace de Clase (URL):", font=ctk.CTkFont(weight="bold")).pack(anchor="w")
+        ctk.CTkEntry(r1, textvariable=self.v_url, placeholder_text="https://zoom.us/j/... o teams link").pack(fill="x", pady=(2, 0))
 
+        # Row 2: Hora/Minuto y Días (horizontal)
         r2 = ctk.CTkFrame(frm, fg_color="transparent")
-        r2.pack(fill="x", padx=10, pady=(5, 10))
+        r2.pack(fill="x", padx=15, pady=5)
+        
+        # Col 1: Hora/Minuto
+        time_frm = ctk.CTkFrame(r2, fg_color="transparent")
+        time_frm.pack(side="left", fill="y")
+        ctk.CTkLabel(time_frm, text="Hora:", font=ctk.CTkFont(weight="bold")).pack(side="left", padx=(0, 5))
+        ctk.CTkComboBox(time_frm, variable=self.v_hora, values=[str(h).zfill(2) for h in range(24)], width=70).pack(side="left")
+        ctk.CTkLabel(time_frm, text=":", font=ctk.CTkFont(weight="bold")).pack(side="left", padx=5)
+        ctk.CTkComboBox(time_frm, variable=self.v_min, values=[str(m).zfill(2) for m in range(0, 60, 5)], width=70).pack(side="left")
+        
+        # Col 2: Días Checkboxes
+        dias_frm = ctk.CTkFrame(r2, fg_color="transparent")
+        dias_frm.pack(side="left", fill="y", padx=(30, 0))
+        ctk.CTkLabel(dias_frm, text="Días:", font=ctk.CTkFont(weight="bold")).pack(side="left", padx=(0, 10))
+        for i, d in enumerate(DIAS):
+            ctk.CTkCheckBox(dias_frm, text=d, variable=self.v_dias[i], width=55).pack(side="left", padx=1)
+
+        # Row 3: Buttons and Note
+        r3 = ctk.CTkFrame(frm, fg_color="transparent")
+        r3.pack(fill="x", padx=15, pady=(5, 10))
         
         tol = self.datos.get("settings", {}).get("tolerancia_min", 30)
-        self.lbl_nota = ctk.CTkLabel(r2, text=f"Nota: Apertura automática con tolerancia de {tol} min.", text_color="gray")
+        self.lbl_nota = ctk.CTkLabel(r3, text=f"Nota: Apertura automática con tolerancia de {tol} min.", text_color="gray", font=ctk.CTkFont(size=11, slant="italic"))
         self.lbl_nota.pack(side="left")
         
-        self.btn_guardar = ctk.CTkButton(r2, text="Agregar curso", command=self.guardar_curso, fg_color="#059669", hover_color="#047857")
+        self.btn_guardar = ctk.CTkButton(r3, text="Agregar curso", command=self.guardar_curso, fg_color="#059669", hover_color="#047857", font=ctk.CTkFont(weight="bold"))
         self.btn_guardar.pack(side="right")
-        self.btn_cancelar = ctk.CTkButton(r2, text="Cancelar", command=self.cancelar_edicion, fg_color="gray", hover_color="#555555")
+        self.btn_cancelar = ctk.CTkButton(r3, text="Cancelar", command=self.cancelar_edicion, fg_color="gray", hover_color="#555555", font=ctk.CTkFont(weight="bold"))
 
         # Container for Scrollable Card Frame
         lf = ctk.CTkFrame(parent)
@@ -355,54 +391,88 @@ class AbreCursosApp:
     def _create_course_card(self, parent, c):
         is_active = c.get("activo", True)
         
-        card = ctk.CTkFrame(parent, fg_color=("#f5f5f5", "#262626"), border_color=("#e5e5e5", "#404040"), border_width=1, corner_radius=10)
+        card = ctk.CTkFrame(parent, fg_color=("#f9f9fb", "#1c1c1e") if is_active else ("#f3f3f5", "#18181a"), border_color=("#e5e7eb", "#27272a"), border_width=1, corner_radius=8)
         
-        # Details container
+        # Details container (slim padded)
         details_frame = ctk.CTkFrame(card, fg_color="transparent")
-        details_frame.pack(side="left", fill="both", expand=True, padx=15, pady=10)
+        details_frame.pack(side="left", fill="both", expand=True, padx=12, pady=5)
         
         top_line = ctk.CTkFrame(details_frame, fg_color="transparent")
         top_line.pack(fill="x", anchor="w")
         
-        lbl_nombre = ctk.CTkLabel(top_line, text=c["nombre"], font=ctk.CTkFont(size=14, weight="bold"), text_color=("#171717", "#ffffff") if is_active else "gray", anchor="w")
+        lbl_nombre = ctk.CTkLabel(top_line, text=c["nombre"], font=ctk.CTkFont(size=14, weight="bold"), text_color=("#1f2937", "#f3f4f6") if is_active else "gray", anchor="w")
         lbl_nombre.pack(side="left")
         
-        lbl_hora = ctk.CTkLabel(top_line, text=f" ⏰ {c['hora']}:{c['minuto']} ", font=ctk.CTkFont(size=11, weight="bold"), fg_color="#3b82f6" if is_active else "gray", text_color="white", corner_radius=6)
-        lbl_hora.pack(side="left", padx=10)
+        # Time capsule badge (blue)
+        time_text = f" {c['hora']}:{c['minuto']} "
+        lbl_hora = ctk.CTkLabel(
+            top_line,
+            text=time_text,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color=("#eff6ff", "#1e3a8a") if is_active else ("#f3f4f6", "#27272a"),
+            text_color=("#2563eb", "#60a5fa") if is_active else "gray",
+            corner_radius=10
+        )
+        lbl_hora.pack(side="left", padx=8)
+        
+        # Platform badge (Zoom green, Teams orange, Web blue)
+        url_lower = c["url"].lower()
+        if "zoom" in url_lower:
+            plat_text = " Zoom "
+            plat_bg = ("#ecfdf5", "#064e3b") if is_active else ("#f3f4f6", "#27272a")
+            plat_fg = ("#047857", "#34d399") if is_active else "gray"
+        elif "teams" in url_lower:
+            plat_text = " Teams "
+            plat_bg = ("#fff7ed", "#7c2d12") if is_active else ("#f3f4f6", "#27272a")
+            plat_fg = ("#c2410c", "#fb923c") if is_active else "gray"
+        else:
+            plat_text = " Web "
+            plat_bg = ("#f0f9ff", "#0c4a6e") if is_active else ("#f3f4f6", "#27272a")
+            plat_fg = ("#0369a1", "#38bdf8") if is_active else "gray"
+            
+        lbl_platform = ctk.CTkLabel(
+            top_line,
+            text=plat_text,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color=plat_bg,
+            text_color=plat_fg,
+            corner_radius=10
+        )
+        lbl_platform.pack(side="left", padx=2)
         
         dias_str = ", ".join(DIAS[d] for d in sorted(c.get("dias", [])))
         lbl_dias = ctk.CTkLabel(details_frame, text=f"Días: {dias_str}", font=ctk.CTkFont(size=11), text_color="gray", anchor="w")
-        lbl_dias.pack(fill="x", pady=(2, 0))
+        lbl_dias.pack(fill="x", pady=(1, 0))
         
         url_text = c["url"]
-        if len(url_text) > 50:
-            url_text = url_text[:47] + "..."
+        if len(url_text) > 65:
+            url_text = url_text[:62] + "..."
             
         is_zoom_or_teams = "zoom" in c["url"].lower() or "teams" in c["url"].lower()
-        lbl_url = ctk.CTkLabel(details_frame, text=f"🔗 {url_text}", font=ctk.CTkFont(size=11), text_color="#10b981" if is_zoom_or_teams else "gray", anchor="w", cursor="hand2")
-        lbl_url.pack(fill="x", pady=(2, 0))
+        lbl_url = ctk.CTkLabel(details_frame, text=f"🔗 {url_text}", font=ctk.CTkFont(size=11), text_color="#10b981" if (is_zoom_or_teams and is_active) else "gray", anchor="w", cursor="hand2")
+        lbl_url.pack(fill="x", pady=(1, 0))
         lbl_url.bind("<Button-1>", lambda e, u=c["url"]: abrir_en_navegador(optimizar_url(u), self))
         ToolTip(lbl_url, "Hacer clic para abrir este enlace directamente en tu navegador.")
 
-        # Actions
+        # Actions (slim layout)
         actions_frame = ctk.CTkFrame(card, fg_color="transparent")
-        actions_frame.pack(side="right", fill="y", padx=15)
+        actions_frame.pack(side="right", fill="y", padx=12, pady=4)
         
         sw_var = tk.BooleanVar(value=is_active)
         sw = ctk.CTkSwitch(actions_frame, text="", variable=sw_var, width=40, command=lambda c_id=c["id"]: self._toggle_activo_by_id(c_id))
-        sw.pack(side="left", padx=10)
+        sw.pack(side="left", padx=5)
         ToolTip(sw, "Activar o desactivar temporalmente este curso del planificador.")
         
-        btn_run = ctk.CTkButton(actions_frame, text="Abrir", font=ctk.CTkFont(size=12, weight="bold"), width=60, height=30, fg_color="#059669", hover_color="#047857", command=lambda url=c["url"], nom=c["nombre"]: self._abrir_manualmente(url, nom))
-        btn_run.pack(side="left", padx=3)
+        btn_run = ctk.CTkButton(actions_frame, text="Abrir", font=ctk.CTkFont(size=11, weight="bold"), width=50, height=26, fg_color="#059669", hover_color="#047857", command=lambda url=c["url"], nom=c["nombre"]: self._abrir_manualmente(url, nom))
+        btn_run.pack(side="left", padx=2)
         ToolTip(btn_run, "Abre este curso de inmediato sin esperar al horario.")
         
-        btn_edit = ctk.CTkButton(actions_frame, text="Editar", font=ctk.CTkFont(size=12, weight="bold"), width=60, height=30, fg_color="#d97706", hover_color="#b45309", command=lambda c_id=c["id"]: self._editar_by_id(c_id))
-        btn_edit.pack(side="left", padx=3)
+        btn_edit = ctk.CTkButton(actions_frame, text="Editar", font=ctk.CTkFont(size=11, weight="bold"), width=50, height=26, fg_color="#d97706", hover_color="#b45309", command=lambda c_id=c["id"]: self._editar_by_id(c_id))
+        btn_edit.pack(side="left", padx=2)
         ToolTip(btn_edit, "Carga los datos de este curso arriba para modificarlos.")
         
-        btn_del = ctk.CTkButton(actions_frame, text="Borrar", font=ctk.CTkFont(size=12, weight="bold"), width=60, height=30, fg_color="#dc2626", hover_color="#b91c1c", command=lambda c_id=c["id"], nom=c["nombre"]: self._eliminar_by_id(c_id, nom))
-        btn_del.pack(side="left", padx=3)
+        btn_del = ctk.CTkButton(actions_frame, text="Borrar", font=ctk.CTkFont(size=11, weight="bold"), width=50, height=26, fg_color="#dc2626", hover_color="#b91c1c", command=lambda c_id=c["id"], nom=c["nombre"]: self._eliminar_by_id(c_id, nom))
+        btn_del.pack(side="left", padx=2)
         ToolTip(btn_del, "Eliminar permanentemente este curso.")
         
         return card
@@ -1088,7 +1158,8 @@ rmdir /s /q "{appdata}"
         now = datetime.now()
         dia_idx = (now.weekday() + 1) % 7
         next_lbl = self._get_next_class_info()
-        self.lbl_reloj.configure(text=f"{now.strftime('%H:%M:%S')}  {DIAS_FULL[dia_idx]}\n{next_lbl}")
+        self.lbl_reloj.configure(text=f"{DIAS_FULL[dia_idx]} {now.strftime('%H:%M:%S')}")
+        self.lbl_proxima.configure(text=next_lbl)
         self.root.after(1000, self._tick)
 
 def get_menu_items(app):
