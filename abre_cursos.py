@@ -468,17 +468,24 @@ class AbreCursosApp:
         )
         lbl_nombre.pack(side="left")
         
-        # Cápsula de hora azul
-        time_text = f" {c['hora']}:{c['minuto']} "
-        lbl_hora = ctk.CTkLabel(
+        # Cápsula de hora azul (con borde azul y fondo oscuro)
+        time_frame = ctk.CTkFrame(
             top_line,
-            text=time_text,
-            font=ctk.CTkFont(size=11, weight="bold"),
-            fg_color="#1d4ed8" if is_active else "#27272a",
-            text_color="#60a5fa" if is_active else "gray",
-            corner_radius=8
+            fg_color="#121212" if is_active else "#27272a",
+            border_color="#2563eb" if is_active else "gray",
+            border_width=1,
+            corner_radius=6
         )
-        lbl_hora.pack(side="left", padx=10)
+        time_frame.pack(side="left", padx=10)
+        
+        lbl_hora = ctk.CTkLabel(
+            time_frame,
+            text=f"{c['hora']}:{c['minuto']}",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color="#3b82f6" if is_active else "gray",
+            fg_color="transparent"
+        )
+        lbl_hora.pack(padx=8, pady=1)
         
         # Fila inferior de detalles: Días • Plataforma • URL
         bottom_line = ctk.CTkFrame(details_frame, fg_color="transparent")
