@@ -25,6 +25,7 @@ import customtkinter as ctk
 from datetime import datetime, timedelta
 from pathlib import Path
 from winotify import Notification, audio
+import pystray
 
 # Versión del programa y repositorio
 VERSION = "2.1.6"
