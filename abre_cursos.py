@@ -28,7 +28,7 @@ from winotify import Notification, audio
 import pystray
 
 # Versión del programa y repositorio
-VERSION = "2.1.6"
+VERSION = "2.1.7"
 GITHUB_USER = "Francoisxd"
 GITHUB_REPO = "abre-cursos"
 
@@ -577,7 +577,7 @@ class AbreCursosApp:
     def mostrar_ventana_actualizacion(self, latest_version, download_url, changelog):
         up_win = ctk.CTkToplevel(self.root)
         up_win.title("Actualización disponible")
-        up_win.geometry("500x350")
+        up_win.geometry("500x380")
         up_win.grab_set()
         up_win.after(200, lambda: up_win.focus_force())
         
@@ -590,20 +590,26 @@ class AbreCursosApp:
         up_win.geometry(f'{width}x{height}+{x}+{y}')
         
         # UI Elements
-        ctk.CTkLabel(up_win, text="🚀 ¡Nueva versión disponible!", font=ctk.CTkFont(size=18, weight="bold")).pack(pady=(20, 10))
+        ctk.CTkLabel(up_win, text="🚀 ¡Nueva versión disponible!", font=ctk.CTkFont(size=18, weight="bold")).pack(pady=(15, 5))
         
         info_text = f"Tu versión actual: v{VERSION}\nÚltima versión disponible: v{latest_version}"
-        ctk.CTkLabel(up_win, text=info_text, font=ctk.CTkFont(size=13)).pack(pady=5)
+        ctk.CTkLabel(up_win, text=info_text, font=ctk.CTkFont(size=12)).pack(pady=2)
         
-        ctk.CTkLabel(up_win, text="Cambios en esta versión:", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=30, pady=(10, 2))
+        ctk.CTkLabel(up_win, text="Cambios en esta versión:", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=30, pady=(5, 2))
         
-        txt_changelog = ctk.CTkTextbox(up_win, height=120)
-        txt_changelog.pack(fill="both", expand=True, padx=30, pady=(0, 20))
+        txt_changelog = ctk.CTkTextbox(up_win, height=100)
+        txt_changelog.pack(fill="both", expand=True, padx=30, pady=(0, 10))
         txt_changelog.insert("1.0", changelog)
         txt_changelog.configure(state="disabled")
         
+        # Progress Bar and Status Label (hidden initially)
+        progress_frame = ctk.CTkFrame(up_win, fg_color="transparent")
+        progress_bar = ctk.CTkProgressBar(progress_frame, width=350)
+        progress_bar.set(0)
+        lbl_status_download = ctk.CTkLabel(progress_frame, text="Descargando actualización: 0%", font=ctk.CTkFont(size=11, slant="italic"))
+        
         btn_frame = ctk.CTkFrame(up_win, fg_color="transparent")
-        btn_frame.pack(fill="x", pady=(0, 20))
+        btn_frame.pack(fill="x", pady=(5, 15))
         
         def iniciar_actualizacion():
             if not getattr(sys, 'frozen', False):
@@ -611,8 +617,14 @@ class AbreCursosApp:
                 up_win.destroy()
                 return
                 
-            btn_actualizar.configure(state="disabled", text="Descargando...")
+            btn_actualizar.configure(state="disabled")
             btn_omitir.configure(state="disabled")
+            
+            # Show progress UI
+            btn_frame.pack_forget()
+            progress_frame.pack(fill="x", pady=(5, 15))
+            lbl_status_download.pack(pady=2)
+            progress_bar.pack(pady=5)
             
             def run_download():
                 try:
@@ -621,24 +633,40 @@ class AbreCursosApp:
                     import urllib.request
                     
                     exe_actual = Path(sys.executable)
-                    temp_exe = Path(tempfile.gettempdir()) / "AbreCursos_new.exe"
+                    dest_dir = exe_actual.parent
+                    zip_temp = Path(tempfile.gettempdir()) / "AbreCursos_update.zip"
                     
                     req = urllib.request.Request(download_url, headers={'User-Agent': 'Mozilla/5.0'})
                     with urllib.request.urlopen(req, timeout=30) as response:
-                        with open(temp_exe, "wb") as out_file:
-                            out_file.write(response.read())
-                            
+                        total_size = int(response.headers.get('content-length', 0))
+                        downloaded = 0
+                        block_size = 1024 * 64
+                        
+                        with open(zip_temp, "wb") as out_file:
+                            while True:
+                                chunk = response.read(block_size)
+                                if not chunk:
+                                    break
+                                out_file.write(chunk)
+                                downloaded += len(chunk)
+                                if total_size > 0:
+                                    percent = downloaded / total_size
+                                    up_win.after(0, lambda p=percent: progress_bar.set(p))
+                                    up_win.after(0, lambda p=percent: lbl_status_download.configure(text=f"Descargando actualización: {int(p * 100)}%"))
+                                    
+                    up_win.after(0, lambda: lbl_status_download.configure(text="Extrayendo y reiniciando..."))
+                    
                     bat_path = Path(tempfile.gettempdir()) / "update_abrecursos.bat"
                     script = f"""@echo off
 ping 127.0.0.1 -n 3 > nul
 :loop
-del /f /q "{exe_actual}"
+del /f /q "{exe_actual}" 2>nul
 if exist "{exe_actual}" (
     ping 127.0.0.1 -n 2 > nul
     goto loop
 )
-copy /y "{temp_exe}" "{exe_actual}"
-del /f /q "{temp_exe}"
+powershell -Command "Expand-Archive -Path '{zip_temp}' -DestinationPath '{dest_dir}' -Force"
+del /f /q "{zip_temp}"
 set _MEIPASS=
 set _MEIPASS2=
 start "" "{exe_actual}"
@@ -649,9 +677,11 @@ start "" "{exe_actual}"
                     os._exit(0)
                     
                 except Exception as e:
-                    self.root.after(0, lambda: messagebox.showerror("Error de actualización", f"No se pudo descargar la nueva versión:\n{e}"))
-                    self.root.after(0, lambda: btn_actualizar.configure(state="normal", text="Actualizar ahora"))
-                    self.root.after(0, lambda: btn_omitir.configure(state="normal"))
+                    up_win.after(0, lambda: messagebox.showerror("Error de actualización", f"No se pudo descargar la nueva versión. Verifica tu conexión a internet.\n\nError: {e}"))
+                    up_win.after(0, lambda: progress_frame.pack_forget())
+                    up_win.after(0, lambda: btn_frame.pack(fill="x", pady=(5, 15)))
+                    up_win.after(0, lambda: btn_actualizar.configure(state="normal"))
+                    up_win.after(0, lambda: btn_omitir.configure(state="normal"))
             
             threading.Thread(target=run_download, daemon=True).start()
 

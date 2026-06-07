@@ -1,5 +1,5 @@
 {
-  "version": "2.1.6",
-  "url": "https://github.com/Francoisxd/abre-cursos/raw/main/AbreCursos.exe",
-  "changelog": "Versión 2.1.6: Corregido el ícono en la bandeja del sistema y optimizado el reinicio del actualizador."
+  "version": "2.1.7",
+  "url": "https://github.com/Francoisxd/abre-cursos/raw/main/AbreCursos.zip",
+  "changelog": "Versión 2.1.7: Cambiado a distribución por carpetas (onedir), agregado soporte de actualizaciones en ZIP y barra de progreso."
 }
