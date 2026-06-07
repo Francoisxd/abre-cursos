@@ -1,5 +1,5 @@
 {
-  "version": "2.1.8",
+  "version": "2.1.9",
   "url": "https://github.com/Francoisxd/abre-cursos/raw/main/AbreCursos.zip",
-  "changelog": "Versión 2.1.8: Agregado selector de navegador personalizado en Ajustes y barra de búsqueda en la lista de cursos."
+  "changelog": "Versión 2.1.9: Parche crítico que corrige el bloqueo de la aplicación al cambiar el tono de sonido u otras opciones en la pestaña Ajustes."
 }

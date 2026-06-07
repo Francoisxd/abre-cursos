@@ -29,7 +29,7 @@ import pystray
 import subprocess
 
 # Versión del programa y repositorio
-VERSION = "2.1.8"
+VERSION = "2.1.9"
 GITHUB_USER = "Francoisxd"
 GITHUB_REPO = "abre-cursos"
 
@@ -47,7 +47,7 @@ LOG_FILE  = BASE_DIR / "historial.log"
 DIAS      = ["Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"]
 DIAS_FULL = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
 
-data_lock = threading.Lock()
+data_lock = threading.RLock()
 
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
@@ -211,7 +211,7 @@ def scheduler_loop(app):
                     
                     # Map sound settings
                     if sound_type == "Alarm":
-                        toast.set_audio(audio.Alarm, loop=False)
+                        toast.set_audio(audio.LoopingAlarm, loop=False)
                     elif sound_type == "SMS":
                         toast.set_audio(audio.SMS, loop=False)
                     elif sound_type == "Mail":
