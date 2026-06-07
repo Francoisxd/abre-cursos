@@ -307,8 +307,15 @@ class AbreCursosApp:
         self.lbl_proxima.pack(side="right", padx=15)
 
         # Tabview principal
-        self.tabview = ctk.CTkTabview(self.root, fg_color="transparent", segment_button_selected_color="#2563eb", segment_button_unselected_color="#1c1c1e")
+        self.tabview = ctk.CTkTabview(self.root, fg_color="transparent")
         self.tabview.pack(fill="both", expand=True, padx=20, pady=(5, 10))
+        try:
+            self.tabview._segmented_button.configure(
+                selected_color="#2563eb",
+                unselected_color="#1c1c1e"
+            )
+        except Exception:
+            pass
 
         # Reloj estilo cápsula superpuesto en la esquina superior derecha alineado con las pestañas
         self.reloj_container = ctk.CTkFrame(
@@ -510,6 +517,10 @@ class AbreCursosApp:
         
         ctk.CTkLabel(bottom_line, text=" • ", font=ctk.CTkFont(size=11), text_color="gray").pack(side="left")
         
+        url_text = c["url"]
+        if len(url_text) > 50:
+            url_text = url_text[:47] + "..."
+            
         # URL link packed horizontally in bottom_line
         lbl_url = ctk.CTkLabel(
             bottom_line, 
