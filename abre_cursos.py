@@ -27,18 +27,19 @@ from pathlib import Path
 from winotify import Notification, audio
 
 # Versión del programa y repositorio
-VERSION = "2.1.5"
+VERSION = "2.1.6"
 GITHUB_USER = "Francoisxd"
 GITHUB_REPO = "abre-cursos"
 
 # Rutas
 if getattr(sys, 'frozen', False):
     BASE_DIR = Path(sys.executable).parent
+    ICON_FILE = Path(sys._MEIPASS) / "icono.ico"
 else:
     BASE_DIR = Path(__file__).parent
+    ICON_FILE = BASE_DIR / "icono.ico"
     
 DATA_FILE = BASE_DIR / "cursos.json"
-ICON_FILE = BASE_DIR / "icono.ico"
 LOG_FILE  = BASE_DIR / "historial.log"
 
 DIAS      = ["Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"]
@@ -1033,7 +1034,13 @@ def run_tray(app):
             
         icon = pystray.Icon("AbreCursos", img, "Abre-Cursos", menu=pystray.Menu(lambda: get_menu_items(app)))
         icon.run()
-    except ImportError: pass
+    except ImportError:
+        pass
+    except Exception as e:
+        try:
+            app.agregar_log(f"Error en bandeja del sistema: {e}")
+        except:
+            pass
 
 if __name__ == "__main__":
     root = ctk.CTk()

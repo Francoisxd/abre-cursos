@@ -1,5 +1,5 @@
 {
-  "version": "2.1.5",
+  "version": "2.1.6",
   "url": "https://github.com/Francoisxd/abre-cursos/raw/main/AbreCursos.exe",
-  "changelog": "Versión 2.1.5: Añadido menú dinámico en bandeja del sistema, historial de logs con base de datos, tarjetas de estadísticas y sonidos de alerta."
+  "changelog": "Versión 2.1.6: Corregido el ícono en la bandeja del sistema y optimizado el reinicio del actualizador."
 }
