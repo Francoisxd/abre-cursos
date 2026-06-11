@@ -30,7 +30,7 @@ import pystray
 import subprocess
 
 # Versión del programa y repositorio
-VERSION = "2.4.0"
+VERSION = "2.4.1"
 GITHUB_USER = "Francoisxd"
 GITHUB_REPO = "abre-cursos"
 

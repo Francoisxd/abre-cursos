@@ -1,5 +1,5 @@
 {
-  "version": "2.4.0",
+  "version": "2.4.1",
   "url": "https://github.com/Francoisxd/abre-cursos/raw/main/AbreCursos.zip",
-  "changelog": "Versión 2.4.0: Añadido Widget Flotante compacto con cuenta regresiva en tiempo real; integrado Modo Enfoque Pomodoro (25/5 min) en la pestaña de Tareas; agregadas Notificaciones Móviles para Discord, Telegram y WhatsApp (mediante CallMeBot); y nueva opción de exportar el historial y estadísticas de asistencia en formato CSV."
+  "changelog": "Versión 2.4.1: Mejorado el Widget Flotante con opacidad inteligente (70% en reposo / 100% en hover) y botón Pin (chincheta) para fijarlo al frente. Simplificada la configuración de WhatsApp con enlace directo para obtener la clave API en un clic."
 }
