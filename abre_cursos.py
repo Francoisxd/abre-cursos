@@ -30,7 +30,7 @@ import pystray
 import subprocess
 
 # Versión del programa y repositorio
-VERSION = "2.4.2"
+VERSION = "2.4.3"
 GITHUB_USER = "Francoisxd"
 GITHUB_REPO = "abre-cursos"
 
@@ -2328,8 +2328,22 @@ rmdir /s /q "{appdata}"
             self.txt_log.configure(state="disabled")
             self._cargar_estadisticas()
 
-    def ocultar(self): self.root.withdraw()
-    def mostrar(self): self.root.deiconify(); self.root.lift()
+    def ocultar(self):
+        self.root.withdraw()
+        if hasattr(self, 'mini_widget') and self.mini_widget is not None:
+            try:
+                self.mini_widget.deiconify()
+            except Exception:
+                pass
+
+    def mostrar(self):
+        self.root.deiconify()
+        self.root.lift()
+        if hasattr(self, 'mini_widget') and self.mini_widget is not None:
+            try:
+                self.mini_widget.deiconify()
+            except Exception:
+                pass
 
     def _get_next_class_info(self):
         now = datetime.now()
