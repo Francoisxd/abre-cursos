@@ -1,5 +1,5 @@
 {
-  "version": "2.2.0",
+  "version": "2.3.0",
   "url": "https://github.com/Francoisxd/abre-cursos/raw/main/AbreCursos.zip",
-  "changelog": "Versión 2.2.0: Rediseño estético premium con un nuevo reloj estilo cápsula en la barra superior, disposición vertical mejorada para el formulario de horarios e insignias dinámicas para plataformas (Zoom, Teams, Web) en tarjetas de cursos más delgadas y estilizadas."
+  "changelog": "Versión 2.3.0: Añadido Launchpad de accesos directos (Drive/Notas), gestor de tareas integradas por curso, importador de calendarios académicos (.ics), estadísticas visuales de asistencia con barras de progreso y selector de temas dinámicos (Modern Blue, Cyberpunk Purple, Forest Emerald, Sunset Orange)."
 }

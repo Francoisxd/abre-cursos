@@ -14,6 +14,7 @@ Abre-Cursos Pro - Automatizador de clases por horario
 import json
 import os
 import sys
+import socket
 import time
 import urllib.parse
 import urllib.request
@@ -29,7 +30,7 @@ import pystray
 import subprocess
 
 # Versión del programa y repositorio
-VERSION = "2.2.0"
+VERSION = "2.3.0"
 GITHUB_USER = "Francoisxd"
 GITHUB_REPO = "abre-cursos"
 
@@ -92,9 +93,9 @@ def cargar_datos():
                 with open(DATA_FILE, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     if isinstance(data, list):
-                        data = {"version": 2, "settings": {"vacaciones": False, "tolerancia_min": 30, "notif_anticipacion": 5, "notif_sonido": "Reminder"}, "cursos": data}
+                        data = {"version": 3, "settings": {"vacaciones": False, "tolerancia_min": 30, "notif_anticipacion": 5, "notif_sonido": "Reminder", "theme": "Modern Blue"}, "cursos": data, "tareas": []}
                     if "settings" not in data:
-                        data["settings"] = {"vacaciones": False, "tolerancia_min": 30, "notif_anticipacion": 5, "notif_sonido": "Reminder"}
+                        data["settings"] = {"vacaciones": False, "tolerancia_min": 30, "notif_anticipacion": 5, "notif_sonido": "Reminder", "theme": "Modern Blue"}
                     else:
                         if "tolerancia_min" not in data["settings"]:
                             data["settings"]["tolerancia_min"] = 30
@@ -102,10 +103,20 @@ def cargar_datos():
                             data["settings"]["notif_anticipacion"] = 5
                         if "notif_sonido" not in data["settings"]:
                             data["settings"]["notif_sonido"] = "Reminder"
+                        if "theme" not in data["settings"]:
+                            data["settings"]["theme"] = "Modern Blue"
+                    if "tareas" not in data:
+                        data["tareas"] = []
+                    # Asegurar campos nuevos en cada curso
+                    for c in data.get("cursos", []):
+                        if "drive_url" not in c:
+                            c["drive_url"] = ""
+                        if "notas" not in c:
+                            c["notas"] = ""
                     return data
             except Exception:
                 pass
-        return {"version": 2, "settings": {"vacaciones": False, "tolerancia_min": 30, "notif_anticipacion": 5, "notif_sonido": "Reminder"}, "cursos": []}
+        return {"version": 3, "settings": {"vacaciones": False, "tolerancia_min": 30, "notif_anticipacion": 5, "notif_sonido": "Reminder", "theme": "Modern Blue"}, "cursos": [], "tareas": []}
 
 def guardar_datos(datos):
     with data_lock:
@@ -271,6 +282,7 @@ class AbreCursosApp:
         self.log_lines = []
         self.editing_id = None
         self._build_ui()
+        self.aplicar_tema_dinamico()
         threading.Thread(target=scheduler_loop, args=(self,), daemon=True).start()
         threading.Thread(target=check_for_updates, args=(True, self), daemon=True).start()
         self._tick()
@@ -338,6 +350,8 @@ class AbreCursosApp:
         self.lbl_reloj.pack(expand=True, padx=15)
 
         self._tab_horario(self.tabview.add("Horario"))
+        self._tab_launchpad(self.tabview.add("Launchpad"))
+        self._tab_tareas(self.tabview.add("Tareas"))
         self._tab_historial(self.tabview.add("Historial"))
         self._tab_ajustes(self.tabview.add("Ajustes"))
 
@@ -620,6 +634,12 @@ class AbreCursosApp:
         self.lbl_stat_asis.configure(text=f"Asistencias\n{asistencias}")
         self.lbl_stat_retr.configure(text=f"Retrasos\n{retrasos}")
         self.lbl_stat_omit.configure(text=f"Omitidos\n{omitidos}")
+        
+        # Calcular tasa de asistencia
+        total = asistencias + omitidos
+        tasa = asistencias / total if total > 0 else 0
+        self.pbar_asis.set(tasa)
+        self.lbl_asis_pct.configure(text=f"{int(tasa * 100)}% asistido ({asistencias} de {total} clases registradas)")
 
     def _tab_historial(self, parent):
         # Stats container
@@ -648,6 +668,16 @@ class AbreCursosApp:
         c3.pack_propagate(False)
         self.lbl_stat_omit = ctk.CTkLabel(c3, text="Omitidos\n0", font=ctk.CTkFont(size=13, weight="bold"), text_color=("#b45309", "#f59e0b"))
         self.lbl_stat_omit.pack(expand=True)
+        
+        # Panel Estadístico Visual
+        self.stats_visual_frm = ctk.CTkFrame(parent, fg_color="#1c1c1e", corner_radius=8)
+        self.stats_visual_frm.pack(fill="x", padx=20, pady=(0, 10))
+        
+        ctk.CTkLabel(self.stats_visual_frm, text="Tasa de Asistencia Efectiva (Horario regular)", font=ctk.CTkFont(size=12, weight="bold"), text_color="white").pack(anchor="w", padx=15, pady=(8, 2))
+        self.pbar_asis = ctk.CTkProgressBar(self.stats_visual_frm, height=12)
+        self.pbar_asis.pack(fill="x", padx=15, pady=(0, 3))
+        self.lbl_asis_pct = ctk.CTkLabel(self.stats_visual_frm, text="0% asistido", font=ctk.CTkFont(size=11), text_color="gray")
+        self.lbl_asis_pct.pack(anchor="e", padx=15, pady=(0, 8))
         
         # Log Text Box
         self.txt_log = ctk.CTkTextbox(parent, font=ctk.CTkFont(family="Consolas", size=12))
@@ -744,6 +774,16 @@ class AbreCursosApp:
         theme_menu.pack(side="right", padx=20)
         theme_menu.set("System")
         ToolTip(theme_menu, "Alterna entre el tema del sistema, modo oscuro o modo claro.")
+        
+        # 6b. Color de Acento
+        ac_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
+        ac_frm.pack(fill="x", pady=6, ipady=4)
+        ctk.CTkLabel(ac_frm, text="🌈 Color de Acento:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
+        theme_sel = self.datos.get("settings", {}).get("theme", "Modern Blue")
+        self.opt_accent = ctk.CTkOptionMenu(ac_frm, values=["Modern Blue", "Cyberpunk Purple", "Forest Emerald", "Sunset Orange"], command=self.cambiar_tema)
+        self.opt_accent.pack(side="right", padx=20)
+        self.opt_accent.set(theme_sel)
+        ToolTip(self.opt_accent, "Elige la paleta de colores para los botones y controles.")
 
         # 7. Navegador para clases
         b_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
@@ -775,6 +815,14 @@ class AbreCursosApp:
         btn_imp = ctk.CTkButton(ie_frm, text="Importar Horarios", fg_color="#3b82f6", hover_color="#2563eb", font=ctk.CTkFont(size=12, weight="bold"), width=130, command=self.importar_cursos)
         btn_imp.pack(side="right", padx=5)
         ToolTip(btn_imp, "Importa una base de datos de horarios JSON externa, reemplazando la actual.")
+        
+        # 9b. Importar desde Calendario (.ics)
+        cal_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
+        cal_frm.pack(fill="x", pady=6, ipady=4)
+        ctk.CTkLabel(cal_frm, text="📆 Importar de Calendario (.ics):", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
+        btn_cal = ctk.CTkButton(cal_frm, text="Importar .ics", fg_color="#7c3aed", hover_color="#6d28d9", font=ctk.CTkFont(size=12, weight="bold"), width=150, command=self.importar_calendario_ics)
+        btn_cal.pack(side="right", padx=20)
+        ToolTip(btn_cal, "Carga un archivo de calendario iCalendar (.ics) para registrar tus cursos de manera masiva.")
 
         # 10. Desinstalación
         u_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
@@ -797,6 +845,383 @@ class AbreCursosApp:
             self.datos["settings"]["browser"] = val
             guardar_datos(self.datos)
         self.agregar_log(f"Navegador de clases actualizado a {val}.")
+
+    # --- PESTAÑA LAUNCHPAD ---
+    def _tab_launchpad(self, parent):
+        lf = ctk.CTkFrame(parent, fg_color="transparent")
+        lf.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        list_hdr = ctk.CTkFrame(lf, fg_color="transparent")
+        list_hdr.pack(fill="x", padx=(10, 25), pady=(5, 5))
+        ctk.CTkLabel(list_hdr, text="Launchpad de Cursos", font=ctk.CTkFont(size=16, weight="bold"), text_color="white").pack(side="left")
+        
+        self.scroll_launchpad = ctk.CTkScrollableFrame(lf, fg_color="transparent")
+        self.scroll_launchpad.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        self.refrescar_launchpad()
+
+    def refrescar_launchpad(self):
+        for w in self.scroll_launchpad.winfo_children():
+            w.destroy()
+            
+        with data_lock:
+            cursos = list(self.datos.get("cursos", []))
+            
+        if not cursos:
+            lbl = ctk.CTkLabel(self.scroll_launchpad, text="No tienes cursos registrados. ¡Agrega uno en Horarios!", font=ctk.CTkFont(size=13, slant="italic"), text_color="gray")
+            lbl.pack(pady=40)
+            return
+            
+        for c in cursos:
+            card = ctk.CTkFrame(self.scroll_launchpad, fg_color="#1c1c1e", border_color="#2d2d30", border_width=1, corner_radius=10)
+            card.pack(fill="x", padx=10, pady=5)
+            
+            lbl_name = ctk.CTkLabel(card, text=c["nombre"].upper(), font=ctk.CTkFont(size=14, weight="bold"), text_color="white")
+            lbl_name.pack(anchor="w", padx=15, pady=(10, 5))
+            
+            btns_frame = ctk.CTkFrame(card, fg_color="transparent")
+            btns_frame.pack(fill="x", padx=15, pady=(0, 5))
+            
+            btn_class = ctk.CTkButton(btns_frame, text="🔗 Clase", width=95, height=28, command=lambda url=c["url"], nom=c["nombre"]: self._abrir_manualmente(url, nom))
+            btn_class.pack(side="left", padx=(0, 5))
+            ToolTip(btn_class, "Abrir el enlace de la clase en el navegador")
+            
+            drive_url = c.get("drive_url", "")
+            btn_drive = ctk.CTkButton(
+                btns_frame, 
+                text="📁 Drive", 
+                width=95, 
+                height=28, 
+                fg_color="#1e7e34" if drive_url else "gray", 
+                hover_color="#155724" if drive_url else "#555555",
+                command=lambda url=drive_url, c_id=c["id"]: self._abrir_drive(url, c_id)
+            )
+            btn_drive.pack(side="left", padx=5)
+            ToolTip(btn_drive, "Abrir la carpeta del curso en Drive (o configurar si no tiene)")
+            
+            btn_edit_links = ctk.CTkButton(btns_frame, text="⚙️ Configurar", width=95, height=28, fg_color="#d97706", hover_color="#b45309", command=lambda c_id=c["id"]: self.editar_launchpad_links(c_id))
+            btn_edit_links.pack(side="left", padx=5)
+            ToolTip(btn_edit_links, "Editar enlace de Drive y notas de este curso")
+            
+            notas = c.get("notas", "").strip()
+            if notas:
+                lbl_note_title = ctk.CTkLabel(card, text="Anotaciones:", font=ctk.CTkFont(size=11, weight="bold"), text_color="gray")
+                lbl_note_title.pack(anchor="w", padx=15, pady=(5, 0))
+                
+                lbl_notes = ctk.CTkLabel(card, text=notas, font=ctk.CTkFont(size=11), text_color="#aeaeae", justify="left", wraplength=750, anchor="w")
+                lbl_notes.pack(anchor="w", padx=15, pady=(2, 10))
+            else:
+                ctk.CTkLabel(card, text="Sin anotaciones. Usa 'Configurar' para añadir notas.", font=ctk.CTkFont(size=11, slant="italic"), text_color="gray").pack(anchor="w", padx=15, pady=(5, 10))
+
+    def _abrir_drive(self, url, c_id):
+        if url:
+            abrir_en_navegador(url, self)
+        else:
+            self.editar_launchpad_links(c_id)
+
+    def editar_launchpad_links(self, c_id):
+        with data_lock:
+            c = next((x for x in self.datos.get("cursos", []) if x["id"] == c_id), None)
+        if not c: return
+        
+        dlg = ctk.CTkToplevel(self.root)
+        dlg.title(f"Configurar {c['nombre']}")
+        dlg.geometry("500x380")
+        dlg.grab_set()
+        dlg.focus_force()
+        
+        dlg.update_idletasks()
+        w = (self.root.winfo_screenwidth() // 2) - 250
+        h = (self.root.winfo_screenheight() // 2) - 190
+        dlg.geometry(f"500x380+{w}+{h}")
+        
+        ctk.CTkLabel(dlg, text=f"Configuración de {c['nombre']}", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=15)
+        
+        ctk.CTkLabel(dlg, text="Carpeta de Drive / Recursos del curso (URL):", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=25, pady=(5, 2))
+        ent_drive = ctk.CTkEntry(dlg, fg_color="#121212", border_color="#2d2d30", height=32)
+        ent_drive.pack(fill="x", padx=25, pady=(0, 10))
+        ent_drive.insert(0, c.get("drive_url", ""))
+        
+        ctk.CTkLabel(dlg, text="Notas rápidas del curso:", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=25, pady=(5, 2))
+        txt_notas = ctk.CTkTextbox(dlg, height=100, fg_color="#121212", border_color="#2d2d30")
+        txt_notas.pack(fill="both", expand=True, padx=25, pady=(0, 15))
+        txt_notas.insert("1.0", c.get("notas", ""))
+        
+        def save():
+            with data_lock:
+                for x in self.datos.get("cursos", []):
+                    if x["id"] == c_id:
+                        x["drive_url"] = ent_drive.get().strip()
+                        x["notas"] = txt_notas.get("1.0", "end-1c").strip()
+                        break
+                guardar_datos(self.datos)
+            self.refrescar_launchpad()
+            dlg.destroy()
+            self.aplicar_tema_dinamico()
+            
+        btn_g = ctk.CTkButton(dlg, text="Guardar cambios", command=save, fg_color="#1e7e34", hover_color="#155724")
+        btn_g.pack(pady=(0, 15))
+        self.aplicar_tema_dinamico()
+
+    # --- PESTAÑA TAREAS ---
+    def _tab_tareas(self, parent):
+        main_frm = ctk.CTkFrame(parent, fg_color="transparent")
+        main_frm.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        form_frm = ctk.CTkFrame(main_frm, fg_color="#1c1c1e", corner_radius=10, width=280)
+        form_frm.pack(side="left", fill="both", expand=False, padx=(0, 10))
+        form_frm.pack_propagate(False)
+        
+        ctk.CTkLabel(form_frm, text="Nueva Tarea", font=ctk.CTkFont(size=14, weight="bold"), text_color="white").pack(pady=(15, 10))
+        
+        ctk.CTkLabel(form_frm, text="Título de la tarea:", font=ctk.CTkFont(size=11, weight="bold")).pack(anchor="w", padx=20, pady=(5, 2))
+        self.v_t_titulo = tk.StringVar()
+        ctk.CTkEntry(form_frm, textvariable=self.v_t_titulo, placeholder_text="Ej: Tarea 3", fg_color="#121212", border_color="#2d2d30", height=32).pack(fill="x", padx=20, pady=(0, 10))
+        
+        ctk.CTkLabel(form_frm, text="Curso vinculado:", font=ctk.CTkFont(size=11, weight="bold")).pack(anchor="w", padx=20, pady=(5, 2))
+        self.cb_t_curso = ctk.CTkComboBox(form_frm, values=[], fg_color="#121212", border_color="#2d2d30", height=32)
+        self.cb_t_curso.pack(fill="x", padx=20, pady=(0, 10))
+        
+        ctk.CTkLabel(form_frm, text="Fecha límite (DD/MM/AAAA):", font=ctk.CTkFont(size=11, weight="bold")).pack(anchor="w", padx=20, pady=(5, 2))
+        self.v_t_fecha = tk.StringVar()
+        self.v_t_fecha.set(datetime.now().strftime("%d/%m/%Y"))
+        ctk.CTkEntry(form_frm, textvariable=self.v_t_fecha, fg_color="#121212", border_color="#2d2d30", height=32).pack(fill="x", padx=20, pady=(0, 10))
+        
+        btn_save = ctk.CTkButton(form_frm, text="Agregar Tarea", command=self.guardar_tarea, font=ctk.CTkFont(weight="bold"))
+        btn_save.pack(fill="x", padx=20, pady=20)
+        
+        list_frm = ctk.CTkFrame(main_frm, fg_color="transparent")
+        list_frm.pack(side="right", fill="both", expand=True)
+        
+        list_hdr = ctk.CTkFrame(list_frm, fg_color="transparent")
+        list_hdr.pack(fill="x", padx=10, pady=(5, 5))
+        ctk.CTkLabel(list_hdr, text="Lista de Pendientes", font=ctk.CTkFont(size=14, weight="bold"), text_color="white").pack(side="left")
+        
+        self.scroll_tareas = ctk.CTkScrollableFrame(list_frm, fg_color="transparent")
+        self.scroll_tareas.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        self.refrescar_tareas()
+
+    def refrescar_tareas(self):
+        with data_lock:
+            cursos_nombres = [c["nombre"] for c in self.datos.get("cursos", [])]
+        cursos_nombres = sorted(list(set(cursos_nombres)))
+        if not cursos_nombres:
+            cursos_nombres = ["Ningún curso registrado"]
+        self.cb_t_curso.configure(values=cursos_nombres)
+        self.cb_t_curso.set(cursos_nombres[0])
+        
+        for w in self.scroll_tareas.winfo_children():
+            w.destroy()
+            
+        with data_lock:
+            tareas = list(self.datos.get("tareas", []))
+            
+        if not tareas:
+            lbl = ctk.CTkLabel(self.scroll_tareas, text="No tienes tareas registradas. ¡Agrega una a la izquierda!", font=ctk.CTkFont(size=13, slant="italic"), text_color="gray")
+            lbl.pack(pady=40)
+            return
+            
+        for i, t in enumerate(tareas):
+            is_done = t.get("completada", False)
+            card = ctk.CTkFrame(self.scroll_tareas, fg_color="#1c1c1e" if not is_done else "#141416", border_color="#2d2d30" if not is_done else "#222", border_width=1, corner_radius=8)
+            card.pack(fill="x", padx=10, pady=5)
+            
+            chk_var = tk.BooleanVar(value=is_done)
+            chk = ctk.CTkCheckBox(card, text="", variable=chk_var, width=24, command=lambda idx=i: self.toggle_tarea(idx))
+            chk.pack(side="left", padx=15)
+            
+            lbl_title = ctk.CTkLabel(card, text=t["titulo"].upper(), font=ctk.CTkFont(size=12, weight="bold", overstrike=is_done), text_color="white" if not is_done else "gray", anchor="w")
+            lbl_title.pack(side="left", fill="both", expand=True, pady=8)
+            
+            details_frm = ctk.CTkFrame(card, fg_color="transparent")
+            details_frm.pack(side="right", fill="y", padx=15)
+            
+            lbl_curso = ctk.CTkLabel(details_frm, text=t.get("curso", "").upper(), font=ctk.CTkFont(size=10, weight="bold"), text_color="white", fg_color="#27272a", corner_radius=6)
+            lbl_curso.pack(side="left", padx=10)
+            
+            lbl_fecha = ctk.CTkLabel(details_frm, text=f"📅 {t.get('fecha', '')}", font=ctk.CTkFont(size=11), text_color="orange" if not is_done else "gray")
+            lbl_fecha.pack(side="left", padx=10)
+            
+            btn_del = ctk.CTkButton(details_frm, text="🗑️", font=ctk.CTkFont(size=11), width=28, height=24, fg_color="#c82333", hover_color="#bd2130", command=lambda idx=i: self.eliminar_tarea(idx))
+            btn_del.pack(side="left", padx=5)
+            ToolTip(btn_del, "Eliminar tarea")
+
+    def guardar_tarea(self):
+        titulo = self.v_t_titulo.get().strip()
+        curso = self.cb_t_curso.get()
+        fecha = self.v_t_fecha.get().strip()
+        
+        if not titulo or not curso or not fecha:
+            messagebox.showwarning("Faltan datos", "Por favor ingresa al menos el título y curso de la tarea.")
+            return
+            
+        with data_lock:
+            self.datos["tareas"].append({
+                "titulo": titulo,
+                "curso": curso,
+                "fecha": fecha,
+                "completada": False
+            })
+            guardar_datos(self.datos)
+            
+        self.v_t_titulo.set("")
+        self.v_t_fecha.set(datetime.now().strftime("%d/%m/%Y"))
+        self.refrescar_tareas()
+        self.aplicar_tema_dinamico()
+
+    def toggle_tarea(self, idx):
+        with data_lock:
+            if idx < len(self.datos["tareas"]):
+                self.datos["tareas"][idx]["completada"] = not self.datos["tareas"][idx].get("completada", False)
+                guardar_datos(self.datos)
+        self.refrescar_tareas()
+        self.aplicar_tema_dinamico()
+
+    def eliminar_tarea(self, idx):
+        with data_lock:
+            if idx < len(self.datos["tareas"]):
+                self.datos["tareas"].pop(idx)
+                guardar_datos(self.datos)
+        self.refrescar_tareas()
+        self.aplicar_tema_dinamico()
+
+    # --- TEMA DINÁMICO ---
+    def aplicar_tema_dinamico(self):
+        theme = self.datos.get("settings", {}).get("theme", "Modern Blue")
+        colors = {
+            "Modern Blue": ("#2563eb", "#1d4ed8"),
+            "Cyberpunk Purple": ("#8b5cf6", "#7c3aed"),
+            "Forest Emerald": ("#10b981", "#059669"),
+            "Sunset Orange": ("#f97316", "#ea580c")
+        }
+        acc, hov = colors.get(theme, ("#2563eb", "#1d4ed8"))
+        
+        if "settings" not in self.datos:
+            self.datos["settings"] = {}
+        self.datos["settings"]["theme"] = theme
+        
+        def _update(parent):
+            for child in parent.winfo_children():
+                if isinstance(child, ctk.CTkButton):
+                    if child.cget("fg_color") not in ["#218838", "#1e7e34", "#c82333", "#bd2130", "#dc2626", "#b91c1c", "gray", "#555555", "#1e7e34", "#155724"]:
+                        child.configure(fg_color=acc, hover_color=hov)
+                elif isinstance(child, ctk.CTkSwitch):
+                    child.configure(progress_color=acc)
+                elif isinstance(child, ctk.CTkCheckBox):
+                    child.configure(fg_color=acc)
+                elif isinstance(child, ctk.CTkProgressBar):
+                    child.configure(progress_color=acc)
+                elif isinstance(child, ctk.CTkFrame):
+                    if child == self.reloj_container:
+                        child.configure(border_color=acc)
+                _update(child)
+        _update(self.root)
+        
+    def cambiar_tema(self, val):
+        with data_lock:
+            if "settings" not in self.datos: self.datos["settings"] = {}
+            self.datos["settings"]["theme"] = val
+            guardar_datos(self.datos)
+        self.aplicar_tema_dinamico()
+        self.agregar_log(f"Tema visual cambiado a: {val}")
+
+    # --- IMPORTADOR CALENDARIO ICS ---
+    def importar_calendario_ics(self):
+        path = filedialog.askopenfilename(filetypes=[("iCalendar Files", "*.ics")])
+        if not path:
+            return
+            
+        try:
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+                
+            events = []
+            current_event = {}
+            in_event = False
+            
+            for line in content.splitlines():
+                line = line.strip()
+                if line == "BEGIN:VEVENT":
+                    current_event = {}
+                    in_event = True
+                elif line == "END:VEVENT":
+                    if in_event:
+                        events.append(current_event)
+                        in_event = False
+                elif in_event:
+                    if ":" in line:
+                        parts = line.split(":", 1)
+                        key = parts[0]
+                        val = parts[1]
+                        if ";" in key:
+                            key = key.split(";")[0]
+                        current_event[key] = val
+            
+            import uuid
+            courses_imported = 0
+            
+            with data_lock:
+                for ev in events:
+                    summary = ev.get("SUMMARY", "Curso Importado").strip()
+                    dtstart = ev.get("DTSTART", "")
+                    rrule = ev.get("RRULE", "")
+                    
+                    if not dtstart: continue
+                    
+                    time_part = dtstart.split("T")[-1]
+                    if len(time_part) >= 4:
+                        hora = time_part[0:2]
+                        minuto = time_part[2:4]
+                    else:
+                        hora = "08"
+                        minuto = "00"
+                        
+                    dias = []
+                    try:
+                        date_part = dtstart.split("T")[0]
+                        dt_obj = datetime.strptime(date_part, "%Y%m%d")
+                        wk_day = (dt_obj.weekday() + 1) % 7
+                        dias.append(wk_day)
+                    except:
+                        pass
+                        
+                    if "BYDAY=" in rrule:
+                        byday_part = rrule.split("BYDAY=")[-1].split(";")[0]
+                        day_codes = byday_part.split(",")
+                        dias = []
+                        map_days = {"SU": 0, "MO": 1, "TU": 2, "WE": 3, "TH": 4, "FR": 5, "SA": 6}
+                        for code in day_codes:
+                            clean_code = "".join(filter(str.isalpha, code))
+                            if clean_code in map_days:
+                                dias.append(map_days[clean_code])
+                                
+                    if not dias:
+                        dias = [1]
+                        
+                    self.datos["cursos"].append({
+                        "id": str(uuid.uuid4())[:8],
+                        "nombre": summary,
+                        "url": "https://upn.class.com/clase-por-configurar",
+                        "hora": hora,
+                        "minuto": minuto,
+                        "dias": dias,
+                        "activo": True,
+                        "drive_url": "",
+                        "notas": ""
+                    })
+                    courses_imported += 1
+                    
+                guardar_datos(self.datos)
+                
+            self.refrescar_lista()
+            self.refrescar_launchpad()
+            self.refrescar_tareas()
+            self.aplicar_tema_dinamico()
+            messagebox.showinfo("Éxito", f"Se importaron {courses_imported} cursos del calendario correctamente.\nNo olvides configurar sus enlaces en el Horario.")
+            self.agregar_log(f"Importados {courses_imported} cursos desde archivo calendario.")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo procesar el archivo iCalendar: {e}")
 
     def buscar_actualizacion_manual(self):
         threading.Thread(target=check_for_updates, args=(False, self), daemon=True).start()
@@ -1276,9 +1701,13 @@ def get_menu_items(app):
         for c in sorted(cursos_hoy, key=lambda x: (x["hora"], x["minuto"])):
             status = "⏰" if c.get("activo", True) else "⏸️"
             c_text = f"  {status} {c['hora']}:{c['minuto']} - {c['nombre']}"
+            
+            def make_handler(url_to_open, name_to_log):
+                return lambda icon, item: app.root.after(0, lambda: app._abrir_manualmente(url_to_open, name_to_log))
+                
             items.append(pystray.MenuItem(
                 c_text, 
-                lambda icon, item, url=c["url"], nom=c["nombre"]: app.root.after(0, lambda: app._abrir_manualmente(url, nom))
+                make_handler(c["url"], c["nombre"])
             ))
     else:
         items.append(pystray.MenuItem("No hay clases hoy", lambda icon, item: None, enabled=False))
@@ -1314,12 +1743,33 @@ def run_tray(app):
     except ImportError:
         pass
     except Exception as e:
+        import traceback
+        tb_str = traceback.format_exc()
         try:
-            app.agregar_log(f"Error en bandeja del sistema: {e}")
+            app.agregar_log(f"Error en bandeja del sistema: {tb_str}")
         except:
             pass
 
 if __name__ == "__main__":
+    is_test_mode = "--test" in sys.argv or "-t" in sys.argv
+    
+    # Evitar doble ejecución mediante un socket lock local (omitido en modo pruebas)
+    if not is_test_mode:
+        try:
+            # Mantenemos viva la referencia del socket durante la vida del programa
+            lock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            lock_socket.bind(('127.0.0.1', 47825))
+        except socket.error:
+            # Ya hay otra instancia en ejecución
+            root_temp = ctk.CTk()
+            root_temp.withdraw()
+            messagebox.showwarning(
+                "Abre-Cursos Pro", 
+                "Abre-Cursos Pro ya se encuentra en ejecución en segundo plano.\n"
+                "Puedes encontrar el programa en la bandeja del sistema (íconos ocultos a la derecha de la barra de tareas)."
+            )
+            sys.exit(0)
+
     root = ctk.CTk()
     app = AbreCursosApp(root)
     threading.Thread(target=run_tray, args=(app,), daemon=True).start()
