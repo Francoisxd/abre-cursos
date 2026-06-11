@@ -250,6 +250,12 @@ def scheduler_loop(app):
                 app.agregar_log(f"Abierto: {curso['nombre']}{extra} ({now.strftime('%d/%m/%Y %H:%M')})")
         time.sleep(15)
 
+def version_to_tuple(v):
+    try:
+        return tuple(int(x) for x in v.replace("v", "").split("."))
+    except:
+        return (0, 0, 0)
+
 def check_for_updates(quiet=True, app=None):
     try:
         url = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/main/update.json"
@@ -261,7 +267,7 @@ def check_for_updates(quiet=True, app=None):
         download_url = data.get("url", "")
         changelog = data.get("changelog", "Sin descripción de cambios.")
         
-        if latest_version and latest_version != VERSION:
+        if latest_version and version_to_tuple(latest_version) > version_to_tuple(VERSION):
             if app:
                 app.root.after(0, lambda: app.mostrar_ventana_actualizacion(latest_version, download_url, changelog))
         else:
