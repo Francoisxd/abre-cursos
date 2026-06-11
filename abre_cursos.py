@@ -30,9 +30,51 @@ import pystray
 import subprocess
 
 # Versión del programa y repositorio
-VERSION = "2.3.0"
+VERSION = "2.4.0"
 GITHUB_USER = "Francoisxd"
 GITHUB_REPO = "abre-cursos"
+
+def enviar_notificacion_remota(settings, mensaje):
+    tipo = settings.get("remote_notif_type", "Desactivado")
+    if tipo == "Desactivado":
+        return
+    
+    def run():
+        try:
+            if tipo == "Discord":
+                webhook_url = settings.get("discord_webhook", "").strip()
+                if not webhook_url: return
+                data = json.dumps({"content": mensaje}).encode('utf-8')
+                req = urllib.request.Request(
+                    webhook_url,
+                    data=data,
+                    headers={'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0'}
+                )
+                with urllib.request.urlopen(req, timeout=5) as r:
+                    pass
+            elif tipo == "Telegram":
+                token = settings.get("telegram_token", "").strip()
+                chat_id = settings.get("telegram_chat_id", "").strip()
+                if not token or not chat_id: return
+                msg_enc = urllib.parse.quote(mensaje)
+                url = f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={msg_enc}"
+                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req, timeout=5) as r:
+                    pass
+            elif tipo == "WhatsApp":
+                phone = settings.get("whatsapp_phone", "").strip()
+                apikey = settings.get("whatsapp_apikey", "").strip()
+                if not phone or not apikey: return
+                msg_enc = urllib.parse.quote(mensaje)
+                url = f"https://api.callmebot.com/whatsapp.php?phone={phone}&text={msg_enc}&apikey={apikey}"
+                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req, timeout=5) as r:
+                    pass
+        except Exception as e:
+            print(f"Error enviando notificacion remota: {e}")
+            
+    threading.Thread(target=run, daemon=True).start()
+
 
 # Rutas
 if getattr(sys, 'frozen', False):
@@ -93,9 +135,9 @@ def cargar_datos():
                 with open(DATA_FILE, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     if isinstance(data, list):
-                        data = {"version": 3, "settings": {"vacaciones": False, "tolerancia_min": 30, "notif_anticipacion": 5, "notif_sonido": "Reminder", "theme": "Modern Blue"}, "cursos": data, "tareas": []}
+                        data = {"version": 4, "settings": {"vacaciones": False, "tolerancia_min": 30, "notif_anticipacion": 5, "notif_sonido": "Reminder", "theme": "Modern Blue", "remote_notif_type": "Desactivado", "discord_webhook": "", "telegram_token": "", "telegram_chat_id": "", "whatsapp_phone": "", "whatsapp_apikey": "", "show_mini_widget": False}, "cursos": data, "tareas": []}
                     if "settings" not in data:
-                        data["settings"] = {"vacaciones": False, "tolerancia_min": 30, "notif_anticipacion": 5, "notif_sonido": "Reminder", "theme": "Modern Blue"}
+                        data["settings"] = {"vacaciones": False, "tolerancia_min": 30, "notif_anticipacion": 5, "notif_sonido": "Reminder", "theme": "Modern Blue", "remote_notif_type": "Desactivado", "discord_webhook": "", "telegram_token": "", "telegram_chat_id": "", "whatsapp_phone": "", "whatsapp_apikey": "", "show_mini_widget": False}
                     else:
                         if "tolerancia_min" not in data["settings"]:
                             data["settings"]["tolerancia_min"] = 30
@@ -105,6 +147,20 @@ def cargar_datos():
                             data["settings"]["notif_sonido"] = "Reminder"
                         if "theme" not in data["settings"]:
                             data["settings"]["theme"] = "Modern Blue"
+                        if "remote_notif_type" not in data["settings"]:
+                            data["settings"]["remote_notif_type"] = "Desactivado"
+                        if "discord_webhook" not in data["settings"]:
+                            data["settings"]["discord_webhook"] = ""
+                        if "telegram_token" not in data["settings"]:
+                            data["settings"]["telegram_token"] = ""
+                        if "telegram_chat_id" not in data["settings"]:
+                            data["settings"]["telegram_chat_id"] = ""
+                        if "whatsapp_phone" not in data["settings"]:
+                            data["settings"]["whatsapp_phone"] = ""
+                        if "whatsapp_apikey" not in data["settings"]:
+                            data["settings"]["whatsapp_apikey"] = ""
+                        if "show_mini_widget" not in data["settings"]:
+                            data["settings"]["show_mini_widget"] = False
                     if "tareas" not in data:
                         data["tareas"] = []
                     # Asegurar campos nuevos en cada curso
@@ -116,7 +172,8 @@ def cargar_datos():
                     return data
             except Exception:
                 pass
-        return {"version": 3, "settings": {"vacaciones": False, "tolerancia_min": 30, "notif_anticipacion": 5, "notif_sonido": "Reminder", "theme": "Modern Blue"}, "cursos": [], "tareas": []}
+        return {"version": 4, "settings": {"vacaciones": False, "tolerancia_min": 30, "notif_anticipacion": 5, "notif_sonido": "Reminder", "theme": "Modern Blue", "remote_notif_type": "Desactivado", "discord_webhook": "", "telegram_token": "", "telegram_chat_id": "", "whatsapp_phone": "", "whatsapp_apikey": "", "show_mini_widget": False}, "cursos": [], "tareas": []}
+
 
 def guardar_datos(datos):
     with data_lock:
@@ -233,6 +290,11 @@ def scheduler_loop(app):
                         toast.set_audio(audio.Reminder, loop=False)
                         
                     toast.show()
+                    # Notificación remota
+                    msg = f"🔔 Abre-Cursos Pro: Tu clase '{curso['nombre']}' comenzará en {anticipacion} minutos!"
+                    with data_lock:
+                        rem_settings = dict(app.datos.get("settings", {}))
+                    enviar_notificacion_remota(rem_settings, msg)
                 except Exception as e:
                     print(f"Error notification: {e}")
 
@@ -277,6 +339,89 @@ def check_for_updates(quiet=True, app=None):
         if not quiet and app:
             app.root.after(0, lambda: messagebox.showerror("Actualización", f"No se pudo verificar actualizaciones:\nEl repositorio aún no existe o está inaccesible."))
 
+class MiniWidget(ctk.CTkToplevel):
+    def __init__(self, app):
+        super().__init__(app.root)
+        self.app = app
+        self.title("Widget")
+        self.geometry("240x80")
+        self.overrideredirect(True)
+        self.attributes("-topmost", True)
+        self.configure(fg_color="#1c1c1e")
+        
+        # Posición inicial: Esquina inferior derecha
+        screen_w = self.winfo_screenwidth()
+        screen_h = self.winfo_screenheight()
+        self.geometry(f"240x80+{screen_w - 260}+{screen_h - 140}")
+        
+        # Eventos para arrastrar
+        self.bind("<Button-1>", self.start_drag)
+        self.bind("<B1-Motion>", self.do_drag)
+        
+        self.lbl_title = ctk.CTkLabel(self, text="PRÓXIMA CLASE", font=ctk.CTkFont(size=10, weight="bold"), text_color="gray")
+        self.lbl_title.pack(anchor="w", padx=15, pady=(8, 0))
+        
+        self.lbl_class = ctk.CTkLabel(self, text="Cargando...", font=ctk.CTkFont(size=12, weight="bold"), text_color="white", anchor="w")
+        self.lbl_class.pack(fill="x", padx=15, pady=(0, 2))
+        
+        self.lbl_time = ctk.CTkLabel(self, text="", font=ctk.CTkFont(size=11, weight="bold"), text_color="#3b82f6")
+        self.lbl_time.pack(anchor="w", padx=15, pady=(0, 8))
+        
+        # Botón de cerrar integrado
+        self.btn_close = ctk.CTkButton(self, text="×", width=16, height=16, font=ctk.CTkFont(size=14, weight="bold"), fg_color="transparent", hover_color="#333", text_color="gray", command=self.hide_widget)
+        self.btn_close.place(x=215, y=5)
+        
+        self.update_colors()
+        self.tick()
+        
+    def start_drag(self, event):
+        self.x = event.x
+        self.y = event.y
+        
+    def do_drag(self, event):
+        deltax = event.x - self.x
+        deltay = event.y - self.y
+        x = self.winfo_x() + deltax
+        y = self.winfo_y() + deltay
+        self.geometry(f"+{x}+{y}")
+        
+    def hide_widget(self):
+        self.app.datos["settings"]["show_mini_widget"] = False
+        guardar_datos(self.app.datos)
+        if hasattr(self.app, 'sw_mini_widget'):
+            self.app.sw_mini_widget.deselect()
+        self.destroy()
+        self.app.mini_widget = None
+        
+    def update_colors(self):
+        theme = self.app.datos.get("settings", {}).get("theme", "Modern Blue")
+        colors = {
+            "Modern Blue": "#3b82f6",
+            "Cyberpunk Purple": "#8b5cf6",
+            "Forest Emerald": "#10b981",
+            "Sunset Orange": "#f97316"
+        }
+        self.lbl_time.configure(text_color=colors.get(theme, "#3b82f6"))
+        
+    def tick(self):
+        try:
+            if not self.winfo_exists():
+                return
+        except:
+            return
+            
+        next_lbl = self.app._get_next_class_info()
+        if next_lbl.startswith("Próxima:"):
+            parts = next_lbl.split(" (en ")
+            nombre = parts[0].replace("Próxima: ", "").upper()
+            countdown = parts[1].replace(")", "") if len(parts) > 1 else "Ahora"
+            self.lbl_class.configure(text=nombre)
+            self.lbl_time.configure(text=f"En {countdown}")
+        else:
+            self.lbl_class.configure(text="SIN CLASES")
+            self.lbl_time.configure(text="No hay clases programadas")
+        self.after(1000, self.tick)
+
 class AbreCursosApp:
     def __init__(self, root):
         self.root = root
@@ -287,11 +432,15 @@ class AbreCursosApp:
         self.datos = cargar_datos()
         self.log_lines = []
         self.editing_id = None
+        self.mini_widget = None
         self._build_ui()
         self.aplicar_tema_dinamico()
         threading.Thread(target=scheduler_loop, args=(self,), daemon=True).start()
         threading.Thread(target=check_for_updates, args=(True, self), daemon=True).start()
         self._tick()
+        if self.datos.get("settings", {}).get("show_mini_widget", False):
+            self.root.after(500, lambda: self.iniciar_mini_widget())
+
 
     def _build_ui(self):
         # Configurar colores oscuros globales para estética premium de Abre-Cursos Pro
@@ -704,7 +853,14 @@ class AbreCursosApp:
                 
         self._cargar_estadisticas()
         
-        ctk.CTkButton(parent, text="Borrar historial", command=self.limpiar_log, fg_color="#dc2626", hover_color="#b91c1c").pack(pady=(0,15))
+        btn_row = ctk.CTkFrame(parent, fg_color="transparent")
+        btn_row.pack(pady=(0, 15))
+        
+        btn_export = ctk.CTkButton(btn_row, text="📊 Exportar Reporte CSV", command=self.exportar_reporte_csv, fg_color="#10b981", hover_color="#059669")
+        btn_export.pack(side="left", padx=5)
+        
+        btn_clear = ctk.CTkButton(btn_row, text="🗑️ Borrar historial", command=self.limpiar_log, fg_color="#dc2626", hover_color="#b91c1c")
+        btn_clear.pack(side="left", padx=5)
 
     def _tab_ajustes(self, parent):
         ctk.CTkLabel(parent, text="Ajustes del programa", font=ctk.CTkFont(size=18, weight="bold")).pack(pady=(15, 10))
@@ -801,6 +957,32 @@ class AbreCursosApp:
         self.opt_browser.set(browser_sel)
         ToolTip(self.opt_browser, "Selecciona el navegador web en el que se abrirán los enlaces de tus clases.")
 
+        # 6c. Widget Flotante
+        wf_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
+        wf_frm.pack(fill="x", pady=6, ipady=4)
+        ctk.CTkLabel(wf_frm, text="🖥️ Widget Flotante en Pantalla:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
+        
+        self.sw_mini_widget = ctk.CTkSwitch(wf_frm, text="Mostrar mini-reproductor", command=self.toggle_mini_widget, font=ctk.CTkFont(size=13))
+        self.sw_mini_widget.pack(side="right", padx=20)
+        if self.datos.get("settings", {}).get("show_mini_widget", False):
+            self.sw_mini_widget.select()
+        ToolTip(self.sw_mini_widget, "Muestra una pequeña ventana flotante en tu escritorio con la cuenta regresiva de la próxima clase.")
+
+        # 7b. Notificaciones Remotas (Discord / Telegram / WhatsApp)
+        rem_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
+        rem_frm.pack(fill="x", pady=6, ipady=4)
+        ctk.CTkLabel(rem_frm, text="💬 Notificaciones Móviles:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
+        
+        rem_type = self.datos.get("settings", {}).get("remote_notif_type", "Desactivado")
+        self.opt_remote = ctk.CTkOptionMenu(rem_frm, values=["Desactivado", "Discord", "Telegram", "WhatsApp"], command=self.cambiar_notif_remota)
+        self.opt_remote.pack(side="right", padx=20)
+        self.opt_remote.set(rem_type)
+        ToolTip(self.opt_remote, "Envía notificaciones a tus chats en el celular.")
+        
+        btn_cfg_rem = ctk.CTkButton(rem_frm, text="⚙️ Configurar", width=95, height=28, fg_color="#d97706", hover_color="#b45309", command=self.configurar_notificaciones_remotas)
+        btn_cfg_rem.pack(side="right", padx=5)
+        ToolTip(btn_cfg_rem, "Configura las URLs, tokens y credenciales para Discord, Telegram o WhatsApp.")
+
         # 8. Actualizaciones
         up_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
         up_frm.pack(fill="x", pady=6, ipady=4)
@@ -837,6 +1019,153 @@ class AbreCursosApp:
         btn_un = ctk.CTkButton(u_frm, text="Desinstalar Programa", fg_color="#dc2626", hover_color="#b91c1c", command=self.desinstalar)
         btn_un.pack(side="right", padx=20)
         ToolTip(btn_un, "Elimina la aplicación, tus cursos guardados y los accesos directos de tu equipo.")
+
+    def cambiar_notif_remota(self, val):
+        with data_lock:
+            if "settings" not in self.datos: self.datos["settings"] = {}
+            self.datos["settings"]["remote_notif_type"] = val
+            guardar_datos(self.datos)
+        self.agregar_log(f"Notificaciones móviles configuradas en modo: {val}")
+        
+    def configurar_notificaciones_remotas(self):
+        dlg = ctk.CTkToplevel(self.root)
+        dlg.title("Configurar Notificaciones Móviles")
+        dlg.geometry("500x380")
+        dlg.grab_set()
+        dlg.focus_force()
+        
+        dlg.update_idletasks()
+        w = (self.root.winfo_screenwidth() // 2) - 250
+        h = (self.root.winfo_screenheight() // 2) - 190
+        dlg.geometry(f"500x380+{w}+{h}")
+        
+        ctk.CTkLabel(dlg, text="Configurar Canales Móviles", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=15)
+        
+        ctk.CTkLabel(dlg, text="Discord Webhook URL:", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=25, pady=(5, 2))
+        ent_discord = ctk.CTkEntry(dlg, fg_color="#121212", border_color="#2d2d30", height=32)
+        ent_discord.pack(fill="x", padx=25, pady=(0, 5))
+        ent_discord.insert(0, self.datos.get("settings", {}).get("discord_webhook", ""))
+        
+        ctk.CTkLabel(dlg, text="Telegram (Bot Token / Chat ID):", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=25, pady=(5, 2))
+        t_fields = ctk.CTkFrame(dlg, fg_color="transparent")
+        t_fields.pack(fill="x", padx=25, pady=(0, 5))
+        ent_t_token = ctk.CTkEntry(t_fields, placeholder_text="Token del Bot", fg_color="#121212", border_color="#2d2d30", height=32)
+        ent_t_token.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        ent_t_token.insert(0, self.datos.get("settings", {}).get("telegram_token", ""))
+        ent_t_chat = ctk.CTkEntry(t_fields, placeholder_text="Chat ID", fg_color="#121212", border_color="#2d2d30", height=32)
+        ent_t_chat.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        ent_t_chat.insert(0, self.datos.get("settings", {}).get("telegram_chat_id", ""))
+        
+        ctk.CTkLabel(dlg, text="WhatsApp CallMeBot (Nº Teléfono / API Key):", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=25, pady=(5, 2))
+        w_fields = ctk.CTkFrame(dlg, fg_color="transparent")
+        w_fields.pack(fill="x", padx=25, pady=(0, 15))
+        ent_w_phone = ctk.CTkEntry(w_fields, placeholder_text="Ej: +51999999999", fg_color="#121212", border_color="#2d2d30", height=32)
+        ent_w_phone.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        ent_w_phone.insert(0, self.datos.get("settings", {}).get("whatsapp_phone", ""))
+        ent_w_apikey = ctk.CTkEntry(w_fields, placeholder_text="API Key del bot", fg_color="#121212", border_color="#2d2d30", height=32)
+        ent_w_apikey.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        ent_w_apikey.insert(0, self.datos.get("settings", {}).get("whatsapp_apikey", ""))
+        
+        def test():
+            test_settings = {
+                "remote_notif_type": self.opt_remote.get(),
+                "discord_webhook": ent_discord.get().strip(),
+                "telegram_token": ent_t_token.get().strip(),
+                "telegram_chat_id": ent_t_chat.get().strip(),
+                "whatsapp_phone": ent_w_phone.get().strip(),
+                "whatsapp_apikey": ent_w_apikey.get().strip()
+            }
+            if test_settings["remote_notif_type"] == "Desactivado":
+                messagebox.showwarning("Prueba", "Por favor, selecciona Discord, Telegram o WhatsApp antes de probar.")
+                return
+            enviar_notificacion_remota(test_settings, "🔔 Abre-Cursos Pro: Mensaje de prueba exitoso!")
+            messagebox.showinfo("Prueba", "Mensaje de prueba enviado. ¡Verifica tu chat!")
+            
+        def save():
+            with data_lock:
+                if "settings" not in self.datos: self.datos["settings"] = {}
+                self.datos["settings"]["discord_webhook"] = ent_discord.get().strip()
+                self.datos["settings"]["telegram_token"] = ent_t_token.get().strip()
+                self.datos["settings"]["telegram_chat_id"] = ent_t_chat.get().strip()
+                self.datos["settings"]["whatsapp_phone"] = ent_w_phone.get().strip()
+                self.datos["settings"]["whatsapp_apikey"] = ent_w_apikey.get().strip()
+                guardar_datos(self.datos)
+            dlg.destroy()
+            self.aplicar_tema_dinamico()
+            
+        btn_frm = ctk.CTkFrame(dlg, fg_color="transparent")
+        btn_frm.pack(fill="x", pady=10)
+        
+        btn_test = ctk.CTkButton(btn_frm, text="Probar", command=test, fg_color="#2563eb", hover_color="#1d4ed8")
+        btn_test.pack(side="left", padx=25, expand=True)
+        
+        btn_g = ctk.CTkButton(btn_frm, text="Guardar", command=save, fg_color="#1e7e34", hover_color="#155724")
+        btn_g.pack(side="right", padx=25, expand=True)
+        
+        self.aplicar_tema_dinamico()
+
+    def toggle_mini_widget(self):
+        val = self.sw_mini_widget.get()
+        with data_lock:
+            if "settings" not in self.datos: self.datos["settings"] = {}
+            self.datos["settings"]["show_mini_widget"] = bool(val)
+            guardar_datos(self.datos)
+        
+        if val:
+            self.iniciar_mini_widget()
+        else:
+            if hasattr(self, 'mini_widget') and self.mini_widget is not None:
+                try:
+                    self.mini_widget.destroy()
+                except:
+                    pass
+                self.mini_widget = None
+
+    def iniciar_mini_widget(self):
+        if not hasattr(self, 'mini_widget') or self.mini_widget is None:
+            self.mini_widget = MiniWidget(self)
+
+    def exportar_reporte_csv(self):
+        path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV Files", "*.csv")], initialfile="reporte_asistencia.csv")
+        if not path:
+            return
+            
+        try:
+            import csv
+            rows = []
+            if LOG_FILE.exists():
+                with open(LOG_FILE, "r", encoding="utf-8") as f:
+                    for line in f:
+                        l = line.strip()
+                        if not l: continue
+                        
+                        tipo = "Manual" if "Abierto manualmente:" in l else ("Omitido (Vacaciones)" if "Omitido" in l else "Automático")
+                        retraso = "No"
+                        if "con" in l and "retraso" in l:
+                            try:
+                                retraso = l.split("con ")[-1].split(" min")[0] + " min"
+                            except:
+                                retraso = "Sí"
+                                
+                        try:
+                            parts = l.split(" (")
+                            fecha_str = parts[-1].replace(")", "")
+                            rest = l.replace("Abierto: ", "").replace("Abierto manualmente: ", "").replace("Omitido (Modo Vacaciones): ", "")
+                            curso_nom = rest.split(" (")[0]
+                        except:
+                            curso_nom = l
+                            fecha_str = datetime.now().strftime("%d/%m/%Y %H:%M")
+                            
+                        rows.append([fecha_str, curso_nom, tipo, retraso])
+            
+            with open(path, "w", newline="", encoding="utf-8-sig") as f:
+                writer = csv.writer(f)
+                writer.writerow(["Fecha y Hora", "Curso / Asignatura", "Tipo de Registro", "Retraso"])
+                writer.writerows(rows)
+                
+            messagebox.showinfo("Éxito", "Reporte exportado correctamente como CSV.")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo exportar el reporte: {e}")
 
     def cambiar_sonido(self, val):
         with data_lock:
@@ -994,7 +1323,37 @@ class AbreCursosApp:
         ctk.CTkEntry(form_frm, textvariable=self.v_t_fecha, fg_color="#121212", border_color="#2d2d30", height=32).pack(fill="x", padx=20, pady=(0, 10))
         
         btn_save = ctk.CTkButton(form_frm, text="Agregar Tarea", command=self.guardar_tarea, font=ctk.CTkFont(weight="bold"))
-        btn_save.pack(fill="x", padx=20, pady=20)
+        btn_save.pack(fill="x", padx=20, pady=(15, 10))
+        
+        # Separador Pomodoro
+        pomo_sep = ctk.CTkFrame(form_frm, height=2, fg_color="#2d2d30")
+        pomo_sep.pack(fill="x", padx=20, pady=5)
+        
+        ctk.CTkLabel(form_frm, text="⏱️ MODO ENFOQUE (POMODORO)", font=ctk.CTkFont(size=12, weight="bold"), text_color="white").pack(pady=(5, 2))
+        
+        self.pomo_running = False
+        self.pomo_time_left = 25 * 60
+        self.pomo_mode = "Focus"
+        
+        self.lbl_pomo_time = ctk.CTkLabel(form_frm, text="25:00", font=ctk.CTkFont(family="Consolas", size=26, weight="bold"), text_color="#3b82f6")
+        self.lbl_pomo_time.pack(pady=2)
+        
+        self.lbl_pomo_status = ctk.CTkLabel(form_frm, text="Listo para comenzar (Focus)", font=ctk.CTkFont(size=11, slant="italic"), text_color="gray")
+        self.lbl_pomo_status.pack(pady=2)
+        
+        pomo_ctrl = ctk.CTkFrame(form_frm, fg_color="transparent")
+        pomo_ctrl.pack(pady=10)
+        
+        self.btn_pomo_start = ctk.CTkButton(pomo_ctrl, text="Iniciar", width=70, height=26, font=ctk.CTkFont(size=11, weight="bold"), fg_color="#1e7e34", hover_color="#155724", command=self.toggle_pomodoro)
+        self.btn_pomo_start.pack(side="left", padx=2)
+        
+        self.btn_pomo_reset = ctk.CTkButton(pomo_ctrl, text="Reiniciar", width=70, height=26, font=ctk.CTkFont(size=11, weight="bold"), fg_color="#27272a", hover_color="#3f3f46", command=self.reset_pomodoro)
+        self.btn_pomo_reset.pack(side="left", padx=2)
+        
+        self.btn_pomo_mode = ctk.CTkButton(pomo_ctrl, text="Descanso", width=70, height=26, font=ctk.CTkFont(size=11, weight="bold"), fg_color="#d97706", hover_color="#b45309", command=self.switch_pomodoro_mode)
+        self.btn_pomo_mode.pack(side="left", padx=2)
+        
+        self.root.after(1000, self.pomodoro_tick)
         
         list_frm = ctk.CTkFrame(main_frm, fg_color="transparent")
         list_frm.pack(side="right", fill="both", expand=True)
@@ -1092,6 +1451,93 @@ class AbreCursosApp:
         self.refrescar_tareas()
         self.aplicar_tema_dinamico()
 
+    def toggle_pomodoro(self):
+        if self.pomo_running:
+            self.pomo_running = False
+            self.btn_pomo_start.configure(text="Iniciar", fg_color="#1e7e34", hover_color="#155724")
+            self.lbl_pomo_status.configure(text="Pausado")
+        else:
+            self.pomo_running = True
+            self.btn_pomo_start.configure(text="Pausar", fg_color="#c82333", hover_color="#bd2130")
+            mode_lbl = "Enfoque" if self.pomo_mode == "Focus" else "Descanso"
+            self.lbl_pomo_status.configure(text=f"Sesión de {mode_lbl} activa")
+
+    def reset_pomodoro(self):
+        self.pomo_running = False
+        self.btn_pomo_start.configure(text="Iniciar", fg_color="#1e7e34", hover_color="#155724")
+        if self.pomo_mode == "Focus":
+            self.pomo_time_left = 25 * 60
+            self.lbl_pomo_status.configure(text="Listo para comenzar (Focus)")
+        else:
+            self.pomo_time_left = 5 * 60
+            self.lbl_pomo_status.configure(text="Listo para comenzar (Descanso)")
+        self.update_pomodoro_display()
+
+    def switch_pomodoro_mode(self):
+        self.pomo_running = False
+        self.btn_pomo_start.configure(text="Iniciar", fg_color="#1e7e34", hover_color="#155724")
+        if self.pomo_mode == "Focus":
+            self.pomo_mode = "Break"
+            self.pomo_time_left = 5 * 60
+            self.btn_pomo_mode.configure(text="Enfoque", fg_color="#2563eb", hover_color="#1d4ed8")
+            self.lbl_pomo_status.configure(text="Listo para comenzar (Descanso)")
+        else:
+            self.pomo_mode = "Focus"
+            self.pomo_time_left = 25 * 60
+            self.btn_pomo_mode.configure(text="Descanso", fg_color="#d97706", hover_color="#b45309")
+            self.lbl_pomo_status.configure(text="Listo para comenzar (Focus)")
+        self.update_pomodoro_display()
+        self.aplicar_tema_dinamico()
+
+    def update_pomodoro_display(self):
+        mins = self.pomo_time_left // 60
+        secs = self.pomo_time_left % 60
+        self.lbl_pomo_time.configure(text=f"{str(mins).zfill(2)}:{str(secs).zfill(2)}")
+        
+        theme = self.datos.get("settings", {}).get("theme", "Modern Blue")
+        colors = {
+            "Modern Blue": "#3b82f6",
+            "Cyberpunk Purple": "#8b5cf6",
+            "Forest Emerald": "#10b981",
+            "Sunset Orange": "#f97316"
+        }
+        if self.pomo_mode == "Focus":
+            self.lbl_pomo_time.configure(text_color=colors.get(theme, "#3b82f6"))
+        else:
+            self.lbl_pomo_time.configure(text_color="#10b981")
+
+    def pomodoro_tick(self):
+        try:
+            if not self.root.winfo_exists():
+                return
+        except:
+            return
+            
+        if self.pomo_running and self.pomo_time_left > 0:
+            self.pomo_time_left -= 1
+            self.update_pomodoro_display()
+            
+            if self.pomo_time_left == 0:
+                self.pomo_running = False
+                self.btn_pomo_start.configure(text="Iniciar", fg_color="#1e7e34", hover_color="#155724")
+                
+                try:
+                    toast = Notification(app_id="AbreCursos", title="Modo Enfoque", msg="¡Sesión terminada!", duration="short")
+                    toast.show()
+                except:
+                    pass
+                
+                self.root.bell()
+                
+                if self.pomo_mode == "Focus":
+                    messagebox.showinfo("Modo Enfoque", "¡Buen trabajo! Es hora de un descanso de 5 minutos.")
+                    self.switch_pomodoro_mode()
+                else:
+                    messagebox.showinfo("Modo Enfoque", "El descanso terminó. ¡A enfocar de nuevo!")
+                    self.switch_pomodoro_mode()
+                    
+        self.root.after(1000, self.pomodoro_tick)
+
     # --- TEMA DINÁMICO ---
     def aplicar_tema_dinamico(self):
         theme = self.datos.get("settings", {}).get("theme", "Modern Blue")
@@ -1123,6 +1569,16 @@ class AbreCursosApp:
                         child.configure(border_color=acc)
                 _update(child)
         _update(self.root)
+        if hasattr(self, 'mini_widget') and self.mini_widget is not None:
+            try:
+                self.mini_widget.update_colors()
+            except:
+                pass
+        if hasattr(self, 'lbl_pomo_time'):
+            try:
+                self.update_pomodoro_display()
+            except:
+                pass
         
     def cambiar_tema(self, val):
         with data_lock:

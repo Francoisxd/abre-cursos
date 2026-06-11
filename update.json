@@ -1,5 +1,5 @@
 {
-  "version": "2.3.0",
+  "version": "2.4.0",
   "url": "https://github.com/Francoisxd/abre-cursos/raw/main/AbreCursos.zip",
-  "changelog": "Versión 2.3.0: Añadido Launchpad de accesos directos (Drive/Notas), gestor de tareas integradas por curso, importador de calendarios académicos (.ics), estadísticas visuales de asistencia con barras de progreso y selector de temas dinámicos (Modern Blue, Cyberpunk Purple, Forest Emerald, Sunset Orange)."
+  "changelog": "Versión 2.4.0: Añadido Widget Flotante compacto con cuenta regresiva en tiempo real; integrado Modo Enfoque Pomodoro (25/5 min) en la pestaña de Tareas; agregadas Notificaciones Móviles para Discord, Telegram y WhatsApp (mediante CallMeBot); y nueva opción de exportar el historial y estadísticas de asistencia en formato CSV."
 }
