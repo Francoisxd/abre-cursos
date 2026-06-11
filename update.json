@@ -1,5 +1,5 @@
 {
-  "version": "2.4.7",
+  "version": "2.4.8",
   "url": "https://github.com/Francoisxd/abre-cursos/raw/main/AbreCursos.zip",
-  "changelog": "Versión 2.4.7: ¡Gran actualización de diseño! Convertimos la selección de colores de acento en un sistema completo de temas visuales premium. Ahora, cada tema cambia por completo los fondos del programa, paneles, tarjetas, cajas de texto, bordes y gráficos del historial."
+  "changelog": "Versión 2.4.8: Corrección de contraste crítico de textos. Ahora todas las etiquetas, nombres de opciones de Ajustes y nombres de los días de la semana en Horarios se leen perfectamente en color blanco/claro, solucionando el problema de visualización cuando Windows está en modo claro y el tema es oscuro."
 }

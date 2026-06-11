@@ -30,7 +30,7 @@ import pystray
 import subprocess
 
 # Versión del programa y repositorio
-VERSION = "2.4.7"
+VERSION = "2.4.8"
 GITHUB_USER = "Francoisxd"
 GITHUB_REPO = "abre-cursos"
 
@@ -1820,11 +1820,11 @@ class AbreCursosApp:
             for child in parent.winfo_children():
                 if isinstance(child, ctk.CTkButton):
                     if child.cget("fg_color") not in ["#218838", "#1e7e34", "#c82333", "#bd2130", "#dc2626", "#b91c1c", "gray", "#555555", "#1e7e34", "#155724"]:
-                        child.configure(fg_color=acc, hover_color=hov)
+                        child.configure(fg_color=acc, hover_color=hov, text_color="white")
                 elif isinstance(child, ctk.CTkSwitch):
-                    child.configure(progress_color=acc)
+                    child.configure(progress_color=acc, text_color=text)
                 elif isinstance(child, ctk.CTkCheckBox):
-                    child.configure(fg_color=acc)
+                    child.configure(fg_color=acc, text_color=text)
                 elif isinstance(child, ctk.CTkProgressBar):
                     child.configure(progress_color=acc)
                 elif isinstance(child, ctk.CTkFrame):
@@ -1838,11 +1838,12 @@ class AbreCursosApp:
                     child.configure(fg_color=bg_app, border_color=border, text_color=text)
                 elif isinstance(child, ctk.CTkLabel):
                     curr_color = child.cget("text_color")
-                    if curr_color in ["white", "gray", "#aeaeae", None]:
-                        if curr_color == "white" or curr_color is None:
-                            child.configure(text_color=text)
-                        else:
-                            child.configure(text_color="#aeaeae")
+                    # If it's a specific highlighted color from stats or reloj, keep it.
+                    # Otherwise, update it to the theme's text color.
+                    if curr_color not in [("#047857", "#10b981"), ("#1d4ed8", "#3b82f6"), ("#b45309", "#f59e0b"), "#10b981", "#3b82f6", "#f59e0b", "#d97706", "#dc2626", "#b91c1c", "#ef4444", "#218838", "#1e7e34", "#60a5fa"]:
+                        child.configure(text_color=text)
+                elif isinstance(child, (ctk.CTkOptionMenu, ctk.CTkComboBox)):
+                    child.configure(button_color=acc, button_hover_color=hov, text_color="white")
                 elif isinstance(child, tk.Canvas):
                     child.configure(bg=bg_frame)
                 _update(child)
