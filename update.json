@@ -1,5 +1,5 @@
 {
-  "version": "2.4.6",
+  "version": "2.4.7",
   "url": "https://github.com/Francoisxd/abre-cursos/raw/main/AbreCursos.zip",
-  "changelog": "Versión 2.4.6: Implementación nativa de tk.Toplevel para el widget. Se resolvió la persistencia cuando se oculta la ventana principal de la barra de tareas a la bandeja, y se mantiene oculto nativamente de Alt+Tab y la barra de tareas."
+  "changelog": "Versión 2.4.7: ¡Gran actualización de diseño! Convertimos la selección de colores de acento en un sistema completo de temas visuales premium. Ahora, cada tema cambia por completo los fondos del programa, paneles, tarjetas, cajas de texto, bordes y gráficos del historial."
 }

@@ -30,9 +30,52 @@ import pystray
 import subprocess
 
 # Versión del programa y repositorio
-VERSION = "2.4.6"
+VERSION = "2.4.7"
 GITHUB_USER = "Francoisxd"
 GITHUB_REPO = "abre-cursos"
+
+THEMES = {
+    "Modern Blue": {
+        "bg_app": "#121212",
+        "bg_frame": "#1c1c1e",
+        "border": "#2d2d30",
+        "accent": "#2563eb",
+        "hover": "#1d4ed8",
+        "text": "#ffffff"
+    },
+    "Cyberpunk Purple": {
+        "bg_app": "#0a0410",
+        "bg_frame": "#13091f",
+        "border": "#2a173d",
+        "accent": "#ec4899",
+        "hover": "#db2777",
+        "text": "#fbcfe8"
+    },
+    "Forest Emerald": {
+        "bg_app": "#050c0a",
+        "bg_frame": "#0c1714",
+        "border": "#172e27",
+        "accent": "#10b981",
+        "hover": "#059669",
+        "text": "#d1fae5"
+    },
+    "Sunset Orange": {
+        "bg_app": "#0f0805",
+        "bg_frame": "#1c110b",
+        "border": "#342014",
+        "accent": "#f97316",
+        "hover": "#ea580c",
+        "text": "#ffedd5"
+    },
+    "Midnight Gold": {
+        "bg_app": "#0d0b07",
+        "bg_frame": "#17140e",
+        "border": "#2d271a",
+        "accent": "#eab308",
+        "hover": "#ca8a04",
+        "text": "#fef9c3"
+    }
+}
 
 def enviar_notificacion_remota(settings, mensaje):
     tipo = settings.get("remote_notif_type", "Desactivado")
@@ -479,21 +522,22 @@ class MiniWidget(tk.Toplevel):
         
     def update_colors(self):
         theme = self.app.datos.get("settings", {}).get("theme", "Modern Blue")
-        colors = {
-            "Modern Blue": "#3b82f6",
-            "Cyberpunk Purple": "#8b5cf6",
-            "Forest Emerald": "#10b981",
-            "Sunset Orange": "#f97316",
-            "Midnight Gold": "#eab308"
-        }
-        accent = colors.get(theme, "#3b82f6")
+        t_colors = THEMES.get(theme, THEMES["Modern Blue"])
+        accent = t_colors["accent"]
+        bg_app = t_colors["bg_app"]
+        bg_frame = t_colors["bg_frame"]
+        text = t_colors["text"]
+        
+        self.configure(bg=bg_app)
+        self.main_frame.configure(fg_color=bg_frame, border_color=accent)
+        self.lbl_title.configure(text_color="#aeaeae")
+        self.lbl_class.configure(text_color=text)
         self.lbl_time.configure(text_color=accent)
-        self.main_frame.configure(border_color=accent)
         
         if self.is_pinned:
             self.btn_pin.configure(fg_color=accent, text_color="white")
         else:
-            self.btn_pin.configure(fg_color="#2d2d30", text_color="#aeaeae")
+            self.btn_pin.configure(fg_color=bg_app, text_color="#aeaeae")
         
     def tick(self):
         try:
@@ -1303,7 +1347,12 @@ class AbreCursosApp:
 
     def dibujar_grafico_dona(self, asistencias, omitidos):
         self.canvas_dona.delete("all")
-        bg_color = "#1c1c1e"
+        theme = self.datos.get("settings", {}).get("theme", "Modern Blue")
+        t_colors = THEMES.get(theme, THEMES["Modern Blue"])
+        bg_color = t_colors["bg_frame"]
+        theme_color = t_colors["accent"]
+        text_color = t_colors["text"]
+        
         self.canvas_dona.configure(bg=bg_color, highlightthickness=0)
         
         total = asistencias + omitidos
@@ -1316,33 +1365,28 @@ class AbreCursosApp:
         angle_asis = int(pct_asis * 360)
         angle_omit = 360 - angle_asis
         
-        theme = self.datos.get("settings", {}).get("theme", "Modern Blue")
-        colors = {
-            "Modern Blue": "#2563eb",
-            "Cyberpunk Purple": "#8b5cf6",
-            "Forest Emerald": "#10b981",
-            "Sunset Orange": "#f97316",
-            "Midnight Gold": "#eab308"
-        }
-        theme_color = colors.get(theme, "#2563eb")
-        
         if angle_asis > 0:
             self.canvas_dona.create_arc(30, 20, 130, 120, start=90, extent=-angle_asis, outline=theme_color, width=12, style="arc")
         if angle_omit > 0:
             self.canvas_dona.create_arc(30, 20, 130, 120, start=90 - angle_asis, extent=-angle_omit, outline="#ef4444", width=12, style="arc")
             
-        self.canvas_dona.create_text(80, 70, text=f"{int(pct_asis * 100)}%", fill="white", font=("Segoe UI", 13, "bold"))
+        self.canvas_dona.create_text(80, 70, text=f"{int(pct_asis * 100)}%", fill=text_color, font=("Segoe UI", 13, "bold"))
         
         # Leyenda
         self.canvas_dona.create_oval(155, 38, 165, 48, fill=theme_color, outline="")
-        self.canvas_dona.create_text(175, 43, text=f"Asistidas ({asistencias})", fill="white", anchor="w", font=("Segoe UI", 9))
+        self.canvas_dona.create_text(175, 43, text=f"Asistidas ({asistencias})", fill=text_color, anchor="w", font=("Segoe UI", 9))
         
         self.canvas_dona.create_oval(155, 68, 165, 78, fill="#ef4444", outline="")
-        self.canvas_dona.create_text(175, 73, text=f"Omitidas ({omitidos})", fill="white", anchor="w", font=("Segoe UI", 9))
+        self.canvas_dona.create_text(175, 73, text=f"Omitidas ({omitidos})", fill=text_color, anchor="w", font=("Segoe UI", 9))
 
     def dibujar_grafico_barras(self):
         self.canvas_barras.delete("all")
-        bg_color = "#1c1c1e"
+        theme = self.datos.get("settings", {}).get("theme", "Modern Blue")
+        t_colors = THEMES.get(theme, THEMES["Modern Blue"])
+        bg_color = t_colors["bg_frame"]
+        theme_color = t_colors["accent"]
+        text_color = t_colors["text"]
+        
         self.canvas_barras.configure(bg=bg_color, highlightthickness=0)
         
         counts = [0] * 7
@@ -1355,16 +1399,6 @@ class AbreCursosApp:
                             
         max_val = max(counts) if max(counts) > 0 else 1
         
-        theme = self.datos.get("settings", {}).get("theme", "Modern Blue")
-        colors = {
-            "Modern Blue": "#3b82f6",
-            "Cyberpunk Purple": "#8b5cf6",
-            "Forest Emerald": "#10b981",
-            "Sunset Orange": "#f97316",
-            "Midnight Gold": "#eab308"
-        }
-        theme_color = colors.get(theme, "#3b82f6")
-        
         order = [1, 2, 3, 4, 5, 6, 0]
         days_names = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
         
@@ -1374,7 +1408,7 @@ class AbreCursosApp:
         bar_width = 30
         gap = 25
         
-        self.canvas_barras.create_text(15, 12, text="Carga de Clases por Día", fill="gray", anchor="w", font=("Segoe UI", 9, "bold"))
+        self.canvas_barras.create_text(15, 12, text="Carga de Clases por Día", fill="#aeaeae", anchor="w", font=("Segoe UI", 9, "bold"))
         
         for i, day_idx in enumerate(order):
             count = counts[day_idx]
@@ -1387,7 +1421,7 @@ class AbreCursosApp:
             
             if count > 0:
                 self.canvas_barras.create_rectangle(x0, y0, x1, y1, fill=theme_color, outline="")
-                self.canvas_barras.create_text((x0 + x1)//2, y0 - 8, text=str(count), fill="white", font=("Segoe UI", 8, "bold"))
+                self.canvas_barras.create_text((x0 + x1)//2, y0 - 8, text=str(count), fill=text_color, font=("Segoe UI", 8, "bold"))
             else:
                 self.canvas_barras.create_rectangle(x0, y_bottom - 2, x1, y1, fill="#333", outline="")
                 
@@ -1768,18 +1802,19 @@ class AbreCursosApp:
     # --- TEMA DINÁMICO ---
     def aplicar_tema_dinamico(self):
         theme = self.datos.get("settings", {}).get("theme", "Modern Blue")
-        colors = {
-            "Modern Blue": ("#2563eb", "#1d4ed8"),
-            "Cyberpunk Purple": ("#8b5cf6", "#7c3aed"),
-            "Forest Emerald": ("#10b981", "#059669"),
-            "Sunset Orange": ("#f97316", "#ea580c"),
-            "Midnight Gold": ("#eab308", "#ca8a04")
-        }
-        acc, hov = colors.get(theme, ("#2563eb", "#1d4ed8"))
+        t_colors = THEMES.get(theme, THEMES["Modern Blue"])
+        acc = t_colors["accent"]
+        hov = t_colors["hover"]
+        bg_app = t_colors["bg_app"]
+        bg_frame = t_colors["bg_frame"]
+        border = t_colors["border"]
+        text = t_colors["text"]
         
         if "settings" not in self.datos:
             self.datos["settings"] = {}
         self.datos["settings"]["theme"] = theme
+        
+        self.root.configure(fg_color=bg_app)
         
         def _update(parent):
             for child in parent.winfo_children():
@@ -1794,9 +1829,30 @@ class AbreCursosApp:
                     child.configure(progress_color=acc)
                 elif isinstance(child, ctk.CTkFrame):
                     if child == self.reloj_container:
-                        child.configure(border_color=acc)
+                        child.configure(border_color=acc, fg_color=bg_app)
+                    else:
+                        cfg_fg = child.cget("fg_color")
+                        if cfg_fg != "transparent":
+                            child.configure(fg_color=bg_frame, border_color=border)
+                elif isinstance(child, (ctk.CTkEntry, ctk.CTkTextbox)):
+                    child.configure(fg_color=bg_app, border_color=border, text_color=text)
+                elif isinstance(child, ctk.CTkLabel):
+                    curr_color = child.cget("text_color")
+                    if curr_color in ["white", "gray", "#aeaeae", None]:
+                        if curr_color == "white" or curr_color is None:
+                            child.configure(text_color=text)
+                        else:
+                            child.configure(text_color="#aeaeae")
+                elif isinstance(child, tk.Canvas):
+                    child.configure(bg=bg_frame)
                 _update(child)
         _update(self.root)
+        
+        try:
+            self._cargar_estadisticas()
+        except:
+            pass
+            
         if hasattr(self, 'mini_widget') and self.mini_widget is not None:
             try:
                 self.mini_widget.update_colors()
