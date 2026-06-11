@@ -1,5 +1,5 @@
 {
-  "version": "2.4.3",
+  "version": "2.4.4",
   "url": "https://github.com/Francoisxd/abre-cursos/raw/main/AbreCursos.zip",
-  "changelog": "Versión 2.4.3: Corrección en la persistencia del widget flotante. Ahora el widget sigue visible en pantalla cuando la ventana principal se cierra o se oculta en la barra de tareas (enviándose al segundo plano/bandeja de sistema)."
+  "changelog": "Versión 2.4.4: Corrección crítica para el widget. Ahora, al intentar cerrar el widget flotante desde el alternador de tareas (Alt+Tab) o la vista previa de la barra de tareas de Windows, se oculta limpiamente y actualiza el estado de la aplicación en lugar de provocar errores de referencia."
 }
