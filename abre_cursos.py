@@ -344,32 +344,100 @@ class MiniWidget(ctk.CTkToplevel):
         super().__init__(app.root)
         self.app = app
         self.title("Widget")
-        self.geometry("240x80")
+        self.geometry("280x95")
         self.overrideredirect(True)
         self.attributes("-topmost", True)
-        self.configure(fg_color="#1c1c1e")
+        self.attributes("-alpha", 0.7)
+        self.configure(fg_color="#121212")
+        
+        self.is_pinned = True
         
         # Posición inicial: Esquina inferior derecha
         screen_w = self.winfo_screenwidth()
         screen_h = self.winfo_screenheight()
-        self.geometry(f"240x80+{screen_w - 260}+{screen_h - 140}")
+        self.geometry(f"280x95+{screen_w - 300}+{screen_h - 150}")
         
-        # Eventos para arrastrar
-        self.bind("<Button-1>", self.start_drag)
-        self.bind("<B1-Motion>", self.do_drag)
+        # Contenedor con Borde de Acercamiento Estilo Dashboard
+        self.main_frame = ctk.CTkFrame(
+            self,
+            fg_color="#1c1c1e",
+            border_width=1,
+            border_color="#2563eb",
+            corner_radius=10
+        )
+        self.main_frame.pack(fill="both", expand=True)
         
-        self.lbl_title = ctk.CTkLabel(self, text="PRÓXIMA CLASE", font=ctk.CTkFont(size=10, weight="bold"), text_color="gray")
+        # Eventos para arrastrar y hover
+        self.main_frame.bind("<Button-1>", self.start_drag)
+        self.main_frame.bind("<B1-Motion>", self.do_drag)
+        self.main_frame.bind("<Enter>", self.on_enter)
+        self.main_frame.bind("<Leave>", self.on_leave)
+        
+        self.bind("<Enter>", self.on_enter)
+        self.bind("<Leave>", self.on_leave)
+        
+        self.lbl_title = ctk.CTkLabel(
+            self.main_frame,
+            text="PRÓXIMA CLASE",
+            font=ctk.CTkFont(size=9, weight="bold"),
+            text_color="gray"
+        )
         self.lbl_title.pack(anchor="w", padx=15, pady=(8, 0))
+        self.lbl_title.bind("<Button-1>", self.start_drag)
+        self.lbl_title.bind("<B1-Motion>", self.do_drag)
         
-        self.lbl_class = ctk.CTkLabel(self, text="Cargando...", font=ctk.CTkFont(size=12, weight="bold"), text_color="white", anchor="w")
-        self.lbl_class.pack(fill="x", padx=15, pady=(0, 2))
+        self.lbl_class = ctk.CTkLabel(
+            self.main_frame,
+            text="Cargando...",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color="white",
+            anchor="w",
+            justify="left",
+            wraplength=220
+        )
+        self.lbl_class.pack(fill="x", padx=15, pady=(2, 2))
+        self.lbl_class.bind("<Button-1>", self.start_drag)
+        self.lbl_class.bind("<B1-Motion>", self.do_drag)
         
-        self.lbl_time = ctk.CTkLabel(self, text="", font=ctk.CTkFont(size=11, weight="bold"), text_color="#3b82f6")
+        self.lbl_time = ctk.CTkLabel(
+            self.main_frame,
+            text="",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color="#3b82f6"
+        )
         self.lbl_time.pack(anchor="w", padx=15, pady=(0, 8))
+        self.lbl_time.bind("<Button-1>", self.start_drag)
+        self.lbl_time.bind("<B1-Motion>", self.do_drag)
+        
+        # Botón de Pin integrado (chincheta)
+        self.btn_pin = ctk.CTkButton(
+            self.main_frame,
+            text="📌",
+            width=22,
+            height=22,
+            font=ctk.CTkFont(size=10),
+            fg_color="#2d2d30",
+            hover_color="#3f3f46",
+            text_color="white",
+            command=self.toggle_pin
+        )
+        self.btn_pin.place(x=222, y=6)
+        ToolTip(self.btn_pin, "Fijar al frente (siempre encima de otras ventanas)")
         
         # Botón de cerrar integrado
-        self.btn_close = ctk.CTkButton(self, text="×", width=16, height=16, font=ctk.CTkFont(size=14, weight="bold"), fg_color="transparent", hover_color="#333", text_color="gray", command=self.hide_widget)
-        self.btn_close.place(x=215, y=5)
+        self.btn_close = ctk.CTkButton(
+            self.main_frame,
+            text="×",
+            width=22,
+            height=22,
+            font=ctk.CTkFont(size=14, weight="bold"),
+            fg_color="transparent",
+            hover_color="#c82333",
+            text_color="gray",
+            command=self.hide_widget
+        )
+        self.btn_close.place(x=248, y=6)
+        ToolTip(self.btn_close, "Ocultar Widget")
         
         self.update_colors()
         self.tick()
@@ -384,6 +452,21 @@ class MiniWidget(ctk.CTkToplevel):
         x = self.winfo_x() + deltax
         y = self.winfo_y() + deltay
         self.geometry(f"+{x}+{y}")
+        
+    def on_enter(self, event):
+        self.attributes("-alpha", 1.0)
+        
+    def on_leave(self, event):
+        self.attributes("-alpha", 0.7)
+        
+    def toggle_pin(self):
+        self.is_pinned = not self.is_pinned
+        self.attributes("-topmost", self.is_pinned)
+        if self.is_pinned:
+            self.btn_pin.configure(fg_color="#2563eb", text_color="white")
+        else:
+            self.btn_pin.configure(fg_color="#2d2d30", text_color="#aeaeae")
+        self.update_colors()
         
     def hide_widget(self):
         self.app.datos["settings"]["show_mini_widget"] = False
@@ -401,7 +484,14 @@ class MiniWidget(ctk.CTkToplevel):
             "Forest Emerald": "#10b981",
             "Sunset Orange": "#f97316"
         }
-        self.lbl_time.configure(text_color=colors.get(theme, "#3b82f6"))
+        accent = colors.get(theme, "#3b82f6")
+        self.lbl_time.configure(text_color=accent)
+        self.main_frame.configure(border_color=accent)
+        
+        if self.is_pinned:
+            self.btn_pin.configure(fg_color=accent, text_color="white")
+        else:
+            self.btn_pin.configure(fg_color="#2d2d30", text_color="#aeaeae")
         
     def tick(self):
         try:
@@ -417,9 +507,15 @@ class MiniWidget(ctk.CTkToplevel):
             countdown = parts[1].replace(")", "") if len(parts) > 1 else "Ahora"
             self.lbl_class.configure(text=nombre)
             self.lbl_time.configure(text=f"En {countdown}")
+            
+            if len(nombre) > 30:
+                self.lbl_class.configure(font=ctk.CTkFont(size=10, weight="bold"))
+            else:
+                self.lbl_class.configure(font=ctk.CTkFont(size=12, weight="bold"))
         else:
             self.lbl_class.configure(text="SIN CLASES")
             self.lbl_time.configure(text="No hay clases programadas")
+            self.lbl_class.configure(font=ctk.CTkFont(size=12, weight="bold"))
         self.after(1000, self.tick)
 
 class AbreCursosApp:
@@ -1058,13 +1154,26 @@ class AbreCursosApp:
         
         ctk.CTkLabel(dlg, text="WhatsApp CallMeBot (Nº Teléfono / API Key):", font=ctk.CTkFont(weight="bold")).pack(anchor="w", padx=25, pady=(5, 2))
         w_fields = ctk.CTkFrame(dlg, fg_color="transparent")
-        w_fields.pack(fill="x", padx=25, pady=(0, 15))
+        w_fields.pack(fill="x", padx=25, pady=(0, 5))
         ent_w_phone = ctk.CTkEntry(w_fields, placeholder_text="Ej: +51999999999", fg_color="#121212", border_color="#2d2d30", height=32)
         ent_w_phone.pack(side="left", fill="x", expand=True, padx=(0, 5))
         ent_w_phone.insert(0, self.datos.get("settings", {}).get("whatsapp_phone", ""))
         ent_w_apikey = ctk.CTkEntry(w_fields, placeholder_text="API Key del bot", fg_color="#121212", border_color="#2d2d30", height=32)
         ent_w_apikey.pack(side="left", fill="x", expand=True, padx=(5, 0))
         ent_w_apikey.insert(0, self.datos.get("settings", {}).get("whatsapp_apikey", ""))
+        
+        def abrir_whatsapp_bot():
+            webbrowser.open("https://api.whatsapp.com/send?phone=34644203173&text=I+allow+callmebot+to+send+me+messages")
+            
+        lbl_w_help = ctk.CTkLabel(
+            dlg,
+            text="🔗 Obtener mi API Key por WhatsApp gratis (Clic aquí)",
+            font=ctk.CTkFont(size=11, weight="bold", underline=True),
+            text_color="#3b82f6",
+            cursor="hand2"
+        )
+        lbl_w_help.pack(anchor="w", padx=25, pady=(0, 15))
+        lbl_w_help.bind("<Button-1>", lambda e: abrir_whatsapp_bot())
         
         def test():
             test_settings = {
