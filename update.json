@@ -1,5 +1,5 @@
 {
-  "version": "2.4.5",
+  "version": "2.4.6",
   "url": "https://github.com/Francoisxd/abre-cursos/raw/main/AbreCursos.zip",
-  "changelog": "Versión 2.4.5: El widget flotante ahora se comporta como un gadget de escritorio real. Se oculta por completo de la barra de tareas y del menú Alt+Tab para evitar cierres o interacciones accidentales de Windows, mientras sigue visible e independiente en el escritorio."
+  "changelog": "Versión 2.4.6: Implementación nativa de tk.Toplevel para el widget. Se resolvió la persistencia cuando se oculta la ventana principal de la barra de tareas a la bandeja, y se mantiene oculto nativamente de Alt+Tab y la barra de tareas."
 }

@@ -30,7 +30,7 @@ import pystray
 import subprocess
 
 # Versión del programa y repositorio
-VERSION = "2.4.5"
+VERSION = "2.4.6"
 GITHUB_USER = "Francoisxd"
 GITHUB_REPO = "abre-cursos"
 
@@ -339,17 +339,16 @@ def check_for_updates(quiet=True, app=None):
         if not quiet and app:
             app.root.after(0, lambda: messagebox.showerror("Actualización", f"No se pudo verificar actualizaciones:\nEl repositorio aún no existe o está inaccesible."))
 
-class MiniWidget(ctk.CTkToplevel):
+class MiniWidget(tk.Toplevel):
     def __init__(self, app):
         super().__init__(app.root)
         self.app = app
         self.title("Widget")
         self.geometry("280x95")
         self.overrideredirect(True)
-        self.transient(app.root)
         self.attributes("-topmost", True)
         self.attributes("-alpha", 0.7)
-        self.configure(fg_color="#121212")
+        self.configure(bg="#121212")
         self.protocol("WM_DELETE_WINDOW", self.hide_widget)
         
         self.is_pinned = True
