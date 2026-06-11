@@ -30,7 +30,7 @@ import pystray
 import subprocess
 
 # Versión del programa y repositorio
-VERSION = "2.4.4"
+VERSION = "2.4.5"
 GITHUB_USER = "Francoisxd"
 GITHUB_REPO = "abre-cursos"
 
@@ -346,10 +346,11 @@ class MiniWidget(ctk.CTkToplevel):
         self.title("Widget")
         self.geometry("280x95")
         self.overrideredirect(True)
+        self.transient(app.root)
         self.attributes("-topmost", True)
         self.attributes("-alpha", 0.7)
         self.configure(fg_color="#121212")
-        self.protocol("WM_DELETE_WINDOW", lambda: None)
+        self.protocol("WM_DELETE_WINDOW", self.hide_widget)
         
         self.is_pinned = True
         
