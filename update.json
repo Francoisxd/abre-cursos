@@ -1,5 +1,5 @@
 {
-  "version": "2.4.1",
+  "version": "2.4.2",
   "url": "https://github.com/Francoisxd/abre-cursos/raw/main/AbreCursos.zip",
-  "changelog": "Versión 2.4.1: Mejorado el Widget Flotante con opacidad inteligente (70% en reposo / 100% en hover) y botón Pin (chincheta) para fijarlo al frente. Simplificada la configuración de WhatsApp con enlace directo para obtener la clave API en un clic."
+  "changelog": "Versión 2.4.2: Gráficos estadísticos interactivos de asistencia en la pestaña Historial, nuevo tema Midnight Gold (Oro de Medianoche), y widget optimizado en segundo plano (al cerrarlo desde la 'x' u ocultarlo se minimiza a la bandeja del sistema)."
 }
