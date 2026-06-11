@@ -30,7 +30,7 @@ import pystray
 import subprocess
 
 # Versión del programa y repositorio
-VERSION = "2.4.1"
+VERSION = "2.4.2"
 GITHUB_USER = "Francoisxd"
 GITHUB_REPO = "abre-cursos"
 
@@ -482,7 +482,8 @@ class MiniWidget(ctk.CTkToplevel):
             "Modern Blue": "#3b82f6",
             "Cyberpunk Purple": "#8b5cf6",
             "Forest Emerald": "#10b981",
-            "Sunset Orange": "#f97316"
+            "Sunset Orange": "#f97316",
+            "Midnight Gold": "#eab308"
         }
         accent = colors.get(theme, "#3b82f6")
         self.lbl_time.configure(text_color=accent)
@@ -891,6 +892,13 @@ class AbreCursosApp:
         tasa = asistencias / total if total > 0 else 0
         self.pbar_asis.set(tasa)
         self.lbl_asis_pct.configure(text=f"{int(tasa * 100)}% asistido ({asistencias} de {total} clases registradas)")
+        
+        if hasattr(self, 'canvas_dona') and hasattr(self, 'canvas_barras'):
+            try:
+                self.dibujar_grafico_dona(asistencias, omitidos)
+                self.dibujar_grafico_barras()
+            except Exception as e:
+                print(f"Error drawing stats: {e}")
 
     def _tab_historial(self, parent):
         # Stats container
@@ -929,6 +937,22 @@ class AbreCursosApp:
         self.pbar_asis.pack(fill="x", padx=15, pady=(0, 3))
         self.lbl_asis_pct = ctk.CTkLabel(self.stats_visual_frm, text="0% asistido", font=ctk.CTkFont(size=11), text_color="gray")
         self.lbl_asis_pct.pack(anchor="e", padx=15, pady=(0, 8))
+        
+        # Contenedor de Gráficos de Canvas
+        self.charts_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        self.charts_frame.pack(fill="x", padx=20, pady=(0, 10))
+        
+        # Gráfico 1: Dona (Asistencias / Omitidos)
+        f_dona = ctk.CTkFrame(self.charts_frame, fg_color="#1c1c1e", corner_radius=8)
+        f_dona.pack(side="left", fill="both", expand=True, padx=(0, 5))
+        self.canvas_dona = tk.Canvas(f_dona, width=260, height=140, bg="#1c1c1e", highlightthickness=0)
+        self.canvas_dona.pack(padx=10, pady=10, expand=True)
+        
+        # Gráfico 2: Barras (Carga de Clases por Día)
+        f_barras = ctk.CTkFrame(self.charts_frame, fg_color="#1c1c1e", corner_radius=8)
+        f_barras.pack(side="right", fill="both", expand=True, padx=(5, 0))
+        self.canvas_barras = tk.Canvas(f_barras, width=440, height=140, bg="#1c1c1e", highlightthickness=0)
+        self.canvas_barras.pack(padx=10, pady=10, expand=True)
         
         # Log Text Box
         self.txt_log = ctk.CTkTextbox(parent, font=ctk.CTkFont(family="Consolas", size=12))
@@ -1038,7 +1062,7 @@ class AbreCursosApp:
         ac_frm.pack(fill="x", pady=6, ipady=4)
         ctk.CTkLabel(ac_frm, text="🌈 Color de Acento:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
         theme_sel = self.datos.get("settings", {}).get("theme", "Modern Blue")
-        self.opt_accent = ctk.CTkOptionMenu(ac_frm, values=["Modern Blue", "Cyberpunk Purple", "Forest Emerald", "Sunset Orange"], command=self.cambiar_tema)
+        self.opt_accent = ctk.CTkOptionMenu(ac_frm, values=["Modern Blue", "Cyberpunk Purple", "Forest Emerald", "Sunset Orange", "Midnight Gold"], command=self.cambiar_tema)
         self.opt_accent.pack(side="right", padx=20)
         self.opt_accent.set(theme_sel)
         ToolTip(self.opt_accent, "Elige la paleta de colores para los botones y controles.")
@@ -1275,6 +1299,98 @@ class AbreCursosApp:
             messagebox.showinfo("Éxito", "Reporte exportado correctamente como CSV.")
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo exportar el reporte: {e}")
+
+    def dibujar_grafico_dona(self, asistencias, omitidos):
+        self.canvas_dona.delete("all")
+        bg_color = "#1c1c1e"
+        self.canvas_dona.configure(bg=bg_color, highlightthickness=0)
+        
+        total = asistencias + omitidos
+        if total == 0:
+            self.canvas_dona.create_oval(30, 20, 130, 120, outline="#333", width=12)
+            self.canvas_dona.create_text(80, 70, text="Sin datos", fill="gray", font=("Segoe UI", 10, "bold"))
+            return
+            
+        pct_asis = asistencias / total
+        angle_asis = int(pct_asis * 360)
+        angle_omit = 360 - angle_asis
+        
+        theme = self.datos.get("settings", {}).get("theme", "Modern Blue")
+        colors = {
+            "Modern Blue": "#2563eb",
+            "Cyberpunk Purple": "#8b5cf6",
+            "Forest Emerald": "#10b981",
+            "Sunset Orange": "#f97316",
+            "Midnight Gold": "#eab308"
+        }
+        theme_color = colors.get(theme, "#2563eb")
+        
+        if angle_asis > 0:
+            self.canvas_dona.create_arc(30, 20, 130, 120, start=90, extent=-angle_asis, outline=theme_color, width=12, style="arc")
+        if angle_omit > 0:
+            self.canvas_dona.create_arc(30, 20, 130, 120, start=90 - angle_asis, extent=-angle_omit, outline="#ef4444", width=12, style="arc")
+            
+        self.canvas_dona.create_text(80, 70, text=f"{int(pct_asis * 100)}%", fill="white", font=("Segoe UI", 13, "bold"))
+        
+        # Leyenda
+        self.canvas_dona.create_oval(155, 38, 165, 48, fill=theme_color, outline="")
+        self.canvas_dona.create_text(175, 43, text=f"Asistidas ({asistencias})", fill="white", anchor="w", font=("Segoe UI", 9))
+        
+        self.canvas_dona.create_oval(155, 68, 165, 78, fill="#ef4444", outline="")
+        self.canvas_dona.create_text(175, 73, text=f"Omitidas ({omitidos})", fill="white", anchor="w", font=("Segoe UI", 9))
+
+    def dibujar_grafico_barras(self):
+        self.canvas_barras.delete("all")
+        bg_color = "#1c1c1e"
+        self.canvas_barras.configure(bg=bg_color, highlightthickness=0)
+        
+        counts = [0] * 7
+        with data_lock:
+            for c in self.datos.get("cursos", []):
+                if c.get("activo", True):
+                    for d in c.get("dias", []):
+                        if 0 <= d < 7:
+                            counts[d] += 1
+                            
+        max_val = max(counts) if max(counts) > 0 else 1
+        
+        theme = self.datos.get("settings", {}).get("theme", "Modern Blue")
+        colors = {
+            "Modern Blue": "#3b82f6",
+            "Cyberpunk Purple": "#8b5cf6",
+            "Forest Emerald": "#10b981",
+            "Sunset Orange": "#f97316",
+            "Midnight Gold": "#eab308"
+        }
+        theme_color = colors.get(theme, "#3b82f6")
+        
+        order = [1, 2, 3, 4, 5, 6, 0]
+        days_names = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
+        
+        x_start = 40
+        y_bottom = 110
+        chart_height = 80
+        bar_width = 30
+        gap = 25
+        
+        self.canvas_barras.create_text(15, 12, text="Carga de Clases por Día", fill="gray", anchor="w", font=("Segoe UI", 9, "bold"))
+        
+        for i, day_idx in enumerate(order):
+            count = counts[day_idx]
+            h = int((count / max_val) * chart_height)
+            
+            x0 = x_start + i * (bar_width + gap)
+            y0 = y_bottom - h
+            x1 = x0 + bar_width
+            y1 = y_bottom
+            
+            if count > 0:
+                self.canvas_barras.create_rectangle(x0, y0, x1, y1, fill=theme_color, outline="")
+                self.canvas_barras.create_text((x0 + x1)//2, y0 - 8, text=str(count), fill="white", font=("Segoe UI", 8, "bold"))
+            else:
+                self.canvas_barras.create_rectangle(x0, y_bottom - 2, x1, y1, fill="#333", outline="")
+                
+            self.canvas_barras.create_text((x0 + x1)//2, y_bottom + 12, text=days_names[i], fill="#aeaeae", font=("Segoe UI", 9))
 
     def cambiar_sonido(self, val):
         with data_lock:
@@ -1608,7 +1724,8 @@ class AbreCursosApp:
             "Modern Blue": "#3b82f6",
             "Cyberpunk Purple": "#8b5cf6",
             "Forest Emerald": "#10b981",
-            "Sunset Orange": "#f97316"
+            "Sunset Orange": "#f97316",
+            "Midnight Gold": "#eab308"
         }
         if self.pomo_mode == "Focus":
             self.lbl_pomo_time.configure(text_color=colors.get(theme, "#3b82f6"))
@@ -1654,7 +1771,8 @@ class AbreCursosApp:
             "Modern Blue": ("#2563eb", "#1d4ed8"),
             "Cyberpunk Purple": ("#8b5cf6", "#7c3aed"),
             "Forest Emerald": ("#10b981", "#059669"),
-            "Sunset Orange": ("#f97316", "#ea580c")
+            "Sunset Orange": ("#f97316", "#ea580c"),
+            "Midnight Gold": ("#eab308", "#ca8a04")
         }
         acc, hov = colors.get(theme, ("#2563eb", "#1d4ed8"))
         
@@ -1967,6 +2085,31 @@ rmdir /s /q "{appdata}"
             self.lbl_vacaciones.pack_forget()
             self.agregar_log("Modo Vacaciones DESACTIVADO (desde la bandeja).")
 
+    def toggle_mini_widget_tray(self):
+        current = self.datos.get("settings", {}).get("show_mini_widget", False)
+        new_state = not current
+        with data_lock:
+            if "settings" not in self.datos: self.datos["settings"] = {}
+            self.datos["settings"]["show_mini_widget"] = new_state
+            guardar_datos(self.datos)
+            
+        if hasattr(self, 'sw_mini_widget'):
+            if new_state:
+                self.sw_mini_widget.select()
+            else:
+                self.sw_mini_widget.deselect()
+                
+        if new_state:
+            self.iniciar_mini_widget()
+        else:
+            if hasattr(self, 'mini_widget') and self.mini_widget is not None:
+                try:
+                    self.mini_widget.destroy()
+                except:
+                    pass
+                self.mini_widget = None
+        self.agregar_log(f"Widget flotante {'MOSTRADO' if new_state else 'OCULTADO'} (desde la bandeja).")
+
     def cambiar_tolerancia(self, val):
         with data_lock:
             if "settings" not in self.datos: self.datos["settings"] = {}
@@ -2252,6 +2395,11 @@ def get_menu_items(app):
     # Toggle Vacaciones
     vac_text = "🏖️ Desactivar Vacaciones" if app.datos.get("settings", {}).get("vacaciones", False) else "🏖️ Activar Vacaciones"
     items.append(pystray.MenuItem(vac_text, lambda icon, item: app.root.after(0, app.toggle_vacaciones_tray)))
+    
+    # Toggle Widget
+    widget_active = app.datos.get("settings", {}).get("show_mini_widget", False)
+    widget_text = "🖥️ Ocultar Widget" if widget_active else "🖥️ Mostrar Widget"
+    items.append(pystray.MenuItem(widget_text, lambda icon, item: app.root.after(0, app.toggle_mini_widget_tray)))
     
     items.append(pystray.Menu.SEPARATOR)
     
