@@ -1,5 +1,5 @@
 {
-  "version": "2.5.2",
+  "version": "2.5.3",
   "url": "https://github.com/Francoisxd/abre-cursos/raw/main/AbreCursos.zip",
-  "changelog": "Versión 2.5.2: Mejoras visuales de Ajustes finalizadas con la migración completa de los textos de los ToolTips hacia las descripciones a la izquierda y eliminación de tooltips redundantes."
+  "changelog": "Versión 2.5.3: Ajustes visuales perfeccionados. Se eliminaron textos descriptivos estáticos y se activaron los globos de ayuda flotantes (ToolTips) vinculados a los títulos de la izquierda."
 }

@@ -31,7 +31,7 @@ import subprocess
 import ctypes
 
 # Versión del programa y repositorio
-VERSION = "2.5.2"
+VERSION = "2.5.3"
 GITHUB_USER = "Francoisxd"
 GITHUB_REPO = "abre-cursos"
 
@@ -1383,7 +1383,7 @@ class AbreCursosApp:
 
         row_colors = ("#eaeaea", "#262626")
 
-        def crear_fila(parent, titulo, descripcion, is_sub_row=False):
+        def crear_fila(parent, titulo, tooltip_text, is_sub_row=False):
             frm = ctk.CTkFrame(parent, fg_color="transparent" if is_sub_row else row_colors, corner_radius=8)
             frm.pack(fill="x", pady=6 if not is_sub_row else 2, ipady=4)
             
@@ -1393,9 +1393,8 @@ class AbreCursosApp:
             lbl_title = ctk.CTkLabel(left_frm, text=titulo, font=ctk.CTkFont(weight="bold", size=13 if is_sub_row else 14))
             lbl_title.pack(anchor="w")
             
-            if descripcion:
-                lbl_desc = ctk.CTkLabel(left_frm, text=descripcion, font=ctk.CTkFont(size=11, slant="italic"), text_color="gray")
-                lbl_desc.pack(anchor="w")
+            if tooltip_text:
+                ToolTip(lbl_title, tooltip_text)
                 
             return frm
 
@@ -1494,7 +1493,6 @@ class AbreCursosApp:
         row_opac = crear_fila(wf_group, "Opacidad en reposo:", "Opacidad de la ventana cuando el cursor no está encima.", is_sub_row=True)
         opacity_val = self.datos.get("settings", {}).get("widget_opacity", 0.7)
         opacity_str_map = {0.5: "50%", 0.7: "70%", 0.85: "85%", 1.0: "100%"}
-        
         self.opt_opacity = ctk.CTkOptionMenu(
             row_opac,
             values=["50%", "70%", "85%", "100%"],
@@ -1504,7 +1502,7 @@ class AbreCursosApp:
         self.opt_opacity.set(opacity_str_map.get(opacity_val, "70%"))
         
         # Fila 5: Bloquear Posición
-        row_lock = crear_fila(wf_group, "Bloquear posición (evitar arrastre):", "Evita mover accidentalmente el widget flotante arrastrándolo.", is_sub_row=True)
+        row_lock = crear_fila(wf_group, "Bloquear posición (evitar arrastre):", "Evita mover accidentalmente el widget flotante arradtrándolo.", is_sub_row=True)
         self.sw_widget_lock = ctk.CTkSwitch(row_lock, text="", command=self.toggle_widget_lock)
         self.sw_widget_lock.pack(side="right", padx=20)
         if self.datos.get("settings", {}).get("widget_locked", False):
