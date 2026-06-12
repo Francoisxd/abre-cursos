@@ -1400,68 +1400,60 @@ class AbreCursosApp:
             return frm
 
         # 1. Modo vacaciones
-        v_frm = crear_fila(adj_scroll, "🏖️ Modo Vacaciones:", "Desactiva de manera temporal la apertura automática de todas las clases.")
+        v_frm = crear_fila(adj_scroll, "🏖️ Modo Vacaciones:", "Habilita este modo para pausar temporalmente todas las clases automáticas (ej: vacaciones).")
         self.sw_vacaciones = ctk.CTkSwitch(v_frm, text="", command=self.toggle_vacaciones)
         self.sw_vacaciones.pack(side="right", padx=20)
         if self.datos.get("settings", {}).get("vacaciones", False): self.sw_vacaciones.select()
-        ToolTip(self.sw_vacaciones, "Habilita este modo para pausar temporalmente todas las clases automáticas (ej: vacaciones).")
 
         # 2. Tolerancia
-        t_frm = crear_fila(adj_scroll, "⏳ Tolerancia de retraso:", "Permitir abrir cursos hasta X minutos tarde si la clase ya inició.")
+        t_frm = crear_fila(adj_scroll, "⏳ Tolerancia de retraso:", "Configura cuántos minutos después de la hora programada se puede seguir abriendo la clase.")
         tol_min = self.datos.get("settings", {}).get("tolerancia_min", 30)
         self.opt_tolerancia = ctk.CTkOptionMenu(t_frm, values=["5", "10", "15", "30", "45", "60"], command=self.cambiar_tolerancia)
         self.opt_tolerancia.pack(side="right", padx=20)
         self.opt_tolerancia.set(str(tol_min))
-        ToolTip(self.opt_tolerancia, "Configura cuántos minutos después de la hora programada se puede seguir abriendo la clase.")
 
         # 3. Notificaciones anticipación
-        n_frm = crear_fila(adj_scroll, "🔔 Notificar antes de empezar:", "Establece el tiempo de antelación para recibir avisos de clase.")
+        n_frm = crear_fila(adj_scroll, "🔔 Notificar antes de empezar:", "Establece el tiempo de antelación para recibir la notificación de Windows.")
         notif_ant = self.datos.get("settings", {}).get("notif_anticipacion", 5)
         notif_str = "Desactivado" if notif_ant == 0 else f"{notif_ant} min"
         self.opt_notif = ctk.CTkOptionMenu(n_frm, values=["Desactivado", "1 min", "5 min", "10 min", "15 min"], command=self.cambiar_anticipacion)
         self.opt_notif.pack(side="right", padx=20)
         self.opt_notif.set(notif_str)
-        ToolTip(self.opt_notif, "Establece el tiempo de antelación para recibir la notificación de Windows.")
 
         # 4. Sonido de Notificación
-        s_frm = crear_fila(adj_scroll, "🎵 Sonido de Alerta:", "Personaliza el sonido que reproduce la notificación de clase.")
+        s_frm = crear_fila(adj_scroll, "🎵 Sonido de Alerta:", "Personaliza el tono de Windows que se reproduce al avisarte de la clase.")
         sound_sel = self.datos.get("settings", {}).get("notif_sonido", "Reminder")
         self.opt_sonido = ctk.CTkOptionMenu(s_frm, values=["Reminder", "Alarm", "SMS", "Mail", "Silencioso"], command=self.cambiar_sonido)
         self.opt_sonido.pack(side="right", padx=20)
         self.opt_sonido.set(sound_sel)
-        ToolTip(self.opt_sonido, "Personaliza el tono de Windows que se reproduce al avisarte de la clase.")
 
         # 5. Auto-inicio con Windows
-        a_frm = crear_fila(adj_scroll, "⚙️ Auto-inicio con Windows:", "Habilita la ejecución automática al arrancar tu computadora.")
+        a_frm = crear_fila(adj_scroll, "⚙️ Auto-inicio con Windows:", "Hacer que Abre-Cursos Pro inicie automáticamente en segundo plano cuando Windows inicie.")
         self.sw_autostart = ctk.CTkSwitch(a_frm, text="", command=self.toggle_autostart)
         self.sw_autostart.pack(side="right", padx=20)
         if self._is_startup_enabled():
             self.sw_autostart.select()
-        ToolTip(self.sw_autostart, "Hacer que Abre-Cursos Pro inicie automáticamente en segundo plano cuando Windows inicie.")
 
         # 6. Apariencia
-        c_frm = crear_fila(adj_scroll, "🎨 Apariencia de Interfaz:", "Cambia el modo de tema general entre claro, oscuro y sistema.")
+        c_frm = crear_fila(adj_scroll, "🎨 Apariencia de Interfaz:", "Alterna entre el tema del sistema, modo oscuro o modo claro.")
         def change_appearance(mode): ctk.set_appearance_mode(mode); self.refrescar_lista()
         theme_menu = ctk.CTkOptionMenu(c_frm, values=["System", "Dark", "Light"], command=change_appearance)
         theme_menu.pack(side="right", padx=20)
         theme_menu.set("System")
-        ToolTip(theme_menu, "Alterna entre el tema del sistema, modo oscuro o modo claro.")
         
         # 6b. Color de Acento
-        ac_frm = crear_fila(adj_scroll, "🌈 Color de Acento:", "Establece la paleta de colores para botones e indicadores.")
+        ac_frm = crear_fila(adj_scroll, "🌈 Color de Acento:", "Elige la paleta de colores para los botones y controles.")
         theme_sel = self.datos.get("settings", {}).get("theme", "Modern Blue")
         self.opt_accent = ctk.CTkOptionMenu(ac_frm, values=["Modern Blue", "Cyberpunk Purple", "Forest Emerald", "Sunset Orange", "Midnight Gold"], command=self.cambiar_tema)
         self.opt_accent.pack(side="right", padx=20)
         self.opt_accent.set(theme_sel)
-        ToolTip(self.opt_accent, "Elige la paleta de colores para los botones y controles.")
 
         # 7. Navegador para clases
-        b_frm = crear_fila(adj_scroll, "🌐 Navegador para clases:", "Elige qué navegador utilizar para abrir las clases programadas.")
+        b_frm = crear_fila(adj_scroll, "🌐 Navegador para clases:", "Selecciona el navegador web en el que se abrirán los enlaces de tus clases.")
         browser_sel = self.datos.get("settings", {}).get("browser", "Predeterminado")
         self.opt_browser = ctk.CTkOptionMenu(b_frm, values=["Predeterminado", "Chrome", "Edge", "Firefox", "Brave"], command=self.cambiar_navegador)
         self.opt_browser.pack(side="right", padx=20)
         self.opt_browser.set(browser_sel)
-        ToolTip(self.opt_browser, "Selecciona el navegador web en el que se abrirán los enlaces de tus clases.")
 
         # 6c. Configuración del Widget Flotante (Sección Expandida y Premium)
         wf_group = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
@@ -1473,15 +1465,14 @@ class AbreCursosApp:
         ctk.CTkLabel(hdr_wf, text="🖥️ CONFIGURACIÓN DEL WIDGET FLOTANTE", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=10)
         
         # Fila 1: Visibilidad
-        row_vis = crear_fila(wf_group, "Mostrar widget flotante en escritorio:", "Muestra una ventana flotante con la cuenta regresiva en el escritorio.", is_sub_row=True)
+        row_vis = crear_fila(wf_group, "Mostrar widget flotante en escritorio:", "Muestra una pequeña ventana flotante en tu escritorio con la cuenta regresiva de la próxima clase.", is_sub_row=True)
         self.sw_mini_widget = ctk.CTkSwitch(row_vis, text="", command=self.toggle_mini_widget)
         self.sw_mini_widget.pack(side="right", padx=20)
         if self.datos.get("settings", {}).get("show_mini_widget", False):
             self.sw_mini_widget.select()
-        ToolTip(self.sw_mini_widget, "Muestra una pequeña ventana flotante en tu escritorio con la cuenta regresiva de la próxima clase.")
 
         # Fila 2: Modo de pantalla (Fijación)
-        row_pin = crear_fila(wf_group, "Modo de fijación en pantalla:", "Configura si el widget flota sobre las ventanas o se ancla al fondo.", is_sub_row=True)
+        row_pin = crear_fila(wf_group, "Modo de fijación en pantalla:", "Configura si el widget flota por encima de todo o se queda fijo al fondo de escritorio.", is_sub_row=True)
         pinned_val = self.datos.get("settings", {}).get("widget_pinned_mode", "Frente")
         pinned_map = {"Frente": "Siempre al frente", "Normal": "Normal", "Fondo": "Fijo en fondo de escritorio"}
         self.opt_widget_pinned_mode = ctk.CTkOptionMenu(
@@ -1491,18 +1482,16 @@ class AbreCursosApp:
         )
         self.opt_widget_pinned_mode.pack(side="right", padx=20)
         self.opt_widget_pinned_mode.set(pinned_map.get(pinned_val, "Siempre al frente"))
-        ToolTip(self.opt_widget_pinned_mode, "Configura si el widget flota por encima de todo o se queda fijo al fondo de escritorio.")
 
         # Fila 3: Click-Through (Atravesar clics)
-        row_ct = crear_fila(wf_group, "Atravesar clics (Click-through):", "Ignora los clics del ratón para poder hacer clic en el fondo.", is_sub_row=True)
+        row_ct = crear_fila(wf_group, "Atravesar clics (Click-through):", "Permite hacer clic a través del widget flotante para interactuar con lo que está debajo.", is_sub_row=True)
         self.sw_widget_click_through = ctk.CTkSwitch(row_ct, text="", command=self.toggle_widget_click_through)
         self.sw_widget_click_through.pack(side="right", padx=20)
         if self.datos.get("settings", {}).get("widget_click_through", False):
             self.sw_widget_click_through.select()
-        ToolTip(self.sw_widget_click_through, "Permite hacer clic a través del widget flotante para interactuar con lo que está debajo.")
         
         # Fila 4: Opacidad
-        row_opac = crear_fila(wf_group, "Opacidad en reposo:", "Ajusta la transparencia del widget cuando no esté el ratón encima.", is_sub_row=True)
+        row_opac = crear_fila(wf_group, "Opacidad en reposo:", "Opacidad de la ventana cuando el cursor no está encima.", is_sub_row=True)
         opacity_val = self.datos.get("settings", {}).get("widget_opacity", 0.7)
         opacity_str_map = {0.5: "50%", 0.7: "70%", 0.85: "85%", 1.0: "100%"}
         
@@ -1513,18 +1502,16 @@ class AbreCursosApp:
         )
         self.opt_opacity.pack(side="right", padx=20)
         self.opt_opacity.set(opacity_str_map.get(opacity_val, "70%"))
-        ToolTip(self.opt_opacity, "Opacidad de la ventana cuando el cursor no está encima.")
         
         # Fila 5: Bloquear Posición
-        row_lock = crear_fila(wf_group, "Bloquear posición (evitar arrastre):", "Bloquea el arrastre del widget para evitar moverlo por accidente.", is_sub_row=True)
+        row_lock = crear_fila(wf_group, "Bloquear posición (evitar arrastre):", "Evita mover accidentalmente el widget flotante arrastrándolo.", is_sub_row=True)
         self.sw_widget_lock = ctk.CTkSwitch(row_lock, text="", command=self.toggle_widget_lock)
         self.sw_widget_lock.pack(side="right", padx=20)
         if self.datos.get("settings", {}).get("widget_locked", False):
             self.sw_widget_lock.select()
-        ToolTip(self.sw_widget_lock, "Evita mover accidentalmente el widget flotante arrastrándolo.")
 
         # Fila 6: Escala / Tamaño
-        row_scale = crear_fila(wf_group, "Escala de tamaño del widget:", "Cambia las dimensiones del widget en la pantalla.", is_sub_row=True)
+        row_scale = crear_fila(wf_group, "Escala de tamaño del widget:", "Escala el tamaño general del widget flotante en tu escritorio.", is_sub_row=True)
         scale_val = self.datos.get("settings", {}).get("widget_scale", "100%")
         self.opt_scale = ctk.CTkOptionMenu(
             row_scale,
@@ -1533,10 +1520,9 @@ class AbreCursosApp:
         )
         self.opt_scale.pack(side="right", padx=20)
         self.opt_scale.set(scale_val)
-        ToolTip(self.opt_scale, "Escala el tamaño general del widget flotante en tu escritorio.")
 
         # Fila 7: Esquinas predefinidas (Posición)
-        row_preset = crear_fila(wf_group, "Posición automática del widget:", "Ubica automáticamente el widget en una esquina de la pantalla.", is_sub_row=True)
+        row_preset = crear_fila(wf_group, "Posición automática del widget:", "Fija el widget de manera automática a una esquina de la pantalla.", is_sub_row=True)
         preset_val = self.datos.get("settings", {}).get("widget_preset_position", "Manual")
         self.opt_preset = ctk.CTkOptionMenu(
             row_preset,
@@ -1545,10 +1531,9 @@ class AbreCursosApp:
         )
         self.opt_preset.pack(side="right", padx=20)
         self.opt_preset.set(preset_val)
-        ToolTip(self.opt_preset, "Fija el widget de manera automática a una esquina de la pantalla.")
 
         # Fila 8: Formato del tiempo
-        row_time_f = crear_fila(wf_group, "Formato de cuenta regresiva:", "Alterna entre descripción en palabras o formato de reloj (HH:MM:SS).", is_sub_row=True)
+        row_time_f = crear_fila(wf_group, "Formato de cuenta regresiva:", "Alterna entre tiempo amigable aproximado o cuenta exacta tipo cronómetro.", is_sub_row=True)
         time_f_val = self.datos.get("settings", {}).get("widget_time_format", "Amigable")
         self.opt_time_format = ctk.CTkOptionMenu(
             row_time_f,
@@ -1557,10 +1542,9 @@ class AbreCursosApp:
         )
         self.opt_time_format.pack(side="right", padx=20)
         self.opt_time_format.set(time_f_val)
-        ToolTip(self.opt_time_format, "Alterna entre tiempo amigable aproximado o cuenta exacta tipo cronómetro.")
 
         # Fila 9: Color independiente del Widget
-        row_w_color = crear_fila(wf_group, "Color de acento del widget:", "Usa un color de tema exclusivo para el widget en lugar del principal.", is_sub_row=True)
+        row_w_color = crear_fila(wf_group, "Color de acento del widget:", "Configura un color de acento único para el widget flotante.", is_sub_row=True)
         w_color_val = self.datos.get("settings", {}).get("widget_color_override", "Tema principal")
         self.opt_w_color = ctk.CTkOptionMenu(
             row_w_color,
@@ -1569,10 +1553,9 @@ class AbreCursosApp:
         )
         self.opt_w_color.pack(side="right", padx=20)
         self.opt_w_color.set(w_color_val)
-        ToolTip(self.opt_w_color, "Configura un color de acento único para el widget flotante.")
         
         # Fila 10: Acción de Campana
-        row_bell = crear_fila(wf_group, "Acción del botón de la campana:", "Cambia la función de la campana en el widget flotante.", is_sub_row=True)
+        row_bell = crear_fila(wf_group, "Acción del botón de la campana:", "Configura qué sucede al hacer clic sobre el botón de campana del widget flotante.", is_sub_row=True)
         bell_action = self.datos.get("settings", {}).get("widget_bell_action", "Silenciar sonido")
         self.opt_bell_action = ctk.CTkOptionMenu(
             row_bell,
@@ -1581,18 +1564,16 @@ class AbreCursosApp:
         )
         self.opt_bell_action.pack(side="right", padx=20)
         self.opt_bell_action.set(bell_action)
-        ToolTip(self.opt_bell_action, "Configura qué sucede al hacer clic sobre el botón de campana del widget flotante.")
         
         # Fila 11: Indicador de Estado
-        row_status = crear_fila(wf_group, "Mostrar indicador circular de estado:", "Agrega un punto verde/amarillo en la esquina del widget.", is_sub_row=True)
+        row_status = crear_fila(wf_group, "Mostrar indicador circular de estado:", "Muestra un punto de color en la esquina del widget que indica el estado del planificador.", is_sub_row=True)
         self.sw_widget_status = ctk.CTkSwitch(row_status, text="", command=self.toggle_widget_status)
         self.sw_widget_status.pack(side="right", padx=20)
         if self.datos.get("settings", {}).get("widget_show_status", True):
             self.sw_widget_status.select()
-        ToolTip(self.sw_widget_status, "Muestra un punto de color en la esquina del widget que indica el estado del planificador.")
 
         # 7b. Notificaciones Remotas (Discord / Telegram / WhatsApp)
-        rem_frm = crear_fila(adj_scroll, "💬 Notificaciones Móviles:", "Envía alertas automáticas directamente a tu teléfono móvil.")
+        rem_frm = crear_fila(adj_scroll, "💬 Notificaciones Móviles:", "Envía notificaciones a tus chats en el celular.")
         rem_type = self.datos.get("settings", {}).get("remote_notif_type", "Desactivado")
         
         # Container frame for buttons on the right to align them horizontally
@@ -1602,42 +1583,35 @@ class AbreCursosApp:
         self.opt_remote = ctk.CTkOptionMenu(rem_ctrls, values=["Desactivado", "Discord", "Telegram", "WhatsApp"], command=self.cambiar_notif_remota)
         self.opt_remote.pack(side="left", padx=5)
         self.opt_remote.set(rem_type)
-        ToolTip(self.opt_remote, "Envía notificaciones a tus chats en el celular.")
         
         btn_cfg_rem = ctk.CTkButton(rem_ctrls, text="⚙️ Configurar", width=95, height=28, fg_color="#d97706", hover_color="#b45309", command=self.configurar_notificaciones_remotas)
         btn_cfg_rem.pack(side="left", padx=5)
-        ToolTip(btn_cfg_rem, "Configura las URLs, tokens y credenciales para Discord, Telegram o WhatsApp.")
 
         # 8. Actualizaciones
-        up_frm = crear_fila(adj_scroll, "🔄 Actualizaciones de Software:", "Verifica si hay nuevas versiones del programa disponibles.")
+        up_frm = crear_fila(adj_scroll, "🔄 Actualizaciones de Software:", "Busca nuevas versiones en el servidor/repositorio remoto e instala la actualización si está disponible.")
         btn_update = ctk.CTkButton(up_frm, text="Buscar Actualización", fg_color="#7c3aed", hover_color="#6d28d9", font=ctk.CTkFont(size=12, weight="bold"), width=150, command=self.buscar_actualizacion_manual)
         btn_update.pack(side="right", padx=20)
-        ToolTip(btn_update, "Busca nuevas versiones en el servidor/repositorio remoto e instala la actualización si está disponible.")
 
         # 9. Importar / Exportar
-        ie_frm = crear_fila(adj_scroll, "📁 Copia de Seguridad:", "Respalda o restaura tus clases y ajustes en un archivo JSON local.")
+        ie_frm = crear_fila(adj_scroll, "📁 Copia de Seguridad:", "Exporta todos tus cursos y configuraciones a un archivo JSON externo, o importa uno.")
         ie_ctrls = ctk.CTkFrame(ie_frm, fg_color="transparent")
         ie_ctrls.pack(side="right", padx=20)
         
         btn_exp = ctk.CTkButton(ie_ctrls, text="Exportar Horarios", fg_color="#10b981", hover_color="#059669", font=ctk.CTkFont(size=12, weight="bold"), width=130, command=self.exportar_cursos)
         btn_exp.pack(side="left", padx=5)
-        ToolTip(btn_exp, "Exporta todos tus cursos y configuraciones a un archivo JSON externo.")
         
         btn_imp = ctk.CTkButton(ie_ctrls, text="Importar Horarios", fg_color="#3b82f6", hover_color="#2563eb", font=ctk.CTkFont(size=12, weight="bold"), width=130, command=self.importar_cursos)
         btn_imp.pack(side="left", padx=5)
-        ToolTip(btn_imp, "Importa una base de datos de horarios JSON externa, reemplazando la actual.")
         
         # 9b. Importar desde Calendario (.ics)
-        cal_frm = crear_fila(adj_scroll, "📆 Importar de Calendario (.ics):", "Carga tus clases y horarios desde archivos .ics estándar de calendario.")
+        cal_frm = crear_fila(adj_scroll, "📆 Importar de Calendario (.ics):", "Carga un archivo de calendario iCalendar (.ics) para registrar tus cursos de manera masiva.")
         btn_cal = ctk.CTkButton(cal_frm, text="Importar .ics", fg_color="#7c3aed", hover_color="#6d28d9", font=ctk.CTkFont(size=12, weight="bold"), width=150, command=self.importar_calendario_ics)
         btn_cal.pack(side="right", padx=20)
-        ToolTip(btn_cal, "Carga un archivo de calendario iCalendar (.ics) para registrar tus cursos de manera masiva.")
 
         # 10. Desinstalación
-        u_frm = crear_fila(adj_scroll, "❌ Desinstalación completa:", "Desinstala el programa, los accesos directos y borra tus datos guardados.")
+        u_frm = crear_fila(adj_scroll, "❌ Desinstalación completa:", "Elimina la aplicación, tus cursos guardados y los accesos directos de tu equipo.")
         btn_un = ctk.CTkButton(u_frm, text="Desinstalar Programa", fg_color="#dc2626", hover_color="#b91c1c", command=self.desinstalar)
         btn_un.pack(side="right", padx=20)
-        ToolTip(btn_un, "Elimina la aplicación, tus cursos guardados y los accesos directos de tu equipo.")
 
     def cambiar_notif_remota(self, val):
         with data_lock:
