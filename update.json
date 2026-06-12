@@ -1,5 +1,5 @@
 {
-  "version": "2.4.9",
+  "version": "2.5.0",
   "url": "https://github.com/Francoisxd/abre-cursos/raw/main/AbreCursos.zip",
-  "changelog": "Versión 2.4.9: Rediseño visual premium del widget flotante (cabecera con calendario, botón interactivo de campana para silenciar/pausar clases rápido, cápsula con icono de reloj para la cuenta regresiva, y punto LED indicador de estado inteligente). Panel de configuración avanzada en Ajustes para controlar opacidad, bloqueo de arrastre, acción de la campana e indicador de estado."
+  "changelog": "Versión 2.5.0: Modificaciones avanzadas del widget flotante (modo de fijación en Fondo de Escritorio por debajo de las ventanas, modo Click-Through para traspasar clics, escalado de tamaño 80%/100%/120%, alineación rápida a esquinas de la pantalla, color de acento del widget independiente, y cuenta regresiva en formato cronómetro HH:MM:SS)."
 }

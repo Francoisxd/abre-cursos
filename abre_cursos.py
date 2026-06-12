@@ -28,9 +28,10 @@ from pathlib import Path
 from winotify import Notification, audio
 import pystray
 import subprocess
+import ctypes
 
 # Versión del programa y repositorio
-VERSION = "2.4.9"
+VERSION = "2.5.0"
 GITHUB_USER = "Francoisxd"
 GITHUB_REPO = "abre-cursos"
 
@@ -173,47 +174,43 @@ class ToolTip:
 
 def cargar_datos():
     with data_lock:
+        default_settings = {
+            "vacaciones": False,
+            "tolerancia_min": 30,
+            "notif_anticipacion": 5,
+            "notif_sonido": "Reminder",
+            "theme": "Modern Blue",
+            "remote_notif_type": "Desactivado",
+            "discord_webhook": "",
+            "telegram_token": "",
+            "telegram_chat_id": "",
+            "whatsapp_phone": "",
+            "whatsapp_apikey": "",
+            "show_mini_widget": False,
+            "widget_opacity": 0.7,
+            "widget_locked": False,
+            "widget_bell_action": "Silenciar sonido",
+            "widget_show_status": True,
+            "widget_bell_muted": False,
+            "widget_pinned_mode": "Frente",
+            "widget_click_through": False,
+            "widget_scale": "100%",
+            "widget_preset_position": "Manual",
+            "widget_time_format": "Amigable",
+            "widget_color_override": "Tema principal"
+        }
         if DATA_FILE.exists():
             try:
                 with open(DATA_FILE, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     if isinstance(data, list):
-                        data = {"version": 4, "settings": {"vacaciones": False, "tolerancia_min": 30, "notif_anticipacion": 5, "notif_sonido": "Reminder", "theme": "Modern Blue", "remote_notif_type": "Desactivado", "discord_webhook": "", "telegram_token": "", "telegram_chat_id": "", "whatsapp_phone": "", "whatsapp_apikey": "", "show_mini_widget": False, "widget_opacity": 0.7, "widget_locked": False, "widget_bell_action": "Silenciar sonido", "widget_show_status": True, "widget_bell_muted": False}, "cursos": data, "tareas": []}
+                        data = {"version": 4, "settings": default_settings.copy(), "cursos": data, "tareas": []}
                     if "settings" not in data:
-                        data["settings"] = {"vacaciones": False, "tolerancia_min": 30, "notif_anticipacion": 5, "notif_sonido": "Reminder", "theme": "Modern Blue", "remote_notif_type": "Desactivado", "discord_webhook": "", "telegram_token": "", "telegram_chat_id": "", "whatsapp_phone": "", "whatsapp_apikey": "", "show_mini_widget": False, "widget_opacity": 0.7, "widget_locked": False, "widget_bell_action": "Silenciar sonido", "widget_show_status": True, "widget_bell_muted": False}
+                        data["settings"] = default_settings.copy()
                     else:
-                        if "tolerancia_min" not in data["settings"]:
-                            data["settings"]["tolerancia_min"] = 30
-                        if "notif_anticipacion" not in data["settings"]:
-                            data["settings"]["notif_anticipacion"] = 5
-                        if "notif_sonido" not in data["settings"]:
-                            data["settings"]["notif_sonido"] = "Reminder"
-                        if "theme" not in data["settings"]:
-                            data["settings"]["theme"] = "Modern Blue"
-                        if "remote_notif_type" not in data["settings"]:
-                            data["settings"]["remote_notif_type"] = "Desactivado"
-                        if "discord_webhook" not in data["settings"]:
-                            data["settings"]["discord_webhook"] = ""
-                        if "telegram_token" not in data["settings"]:
-                            data["settings"]["telegram_token"] = ""
-                        if "telegram_chat_id" not in data["settings"]:
-                            data["settings"]["telegram_chat_id"] = ""
-                        if "whatsapp_phone" not in data["settings"]:
-                            data["settings"]["whatsapp_phone"] = ""
-                        if "whatsapp_apikey" not in data["settings"]:
-                            data["settings"]["whatsapp_apikey"] = ""
-                        if "show_mini_widget" not in data["settings"]:
-                            data["settings"]["show_mini_widget"] = False
-                        if "widget_opacity" not in data["settings"]:
-                            data["settings"]["widget_opacity"] = 0.7
-                        if "widget_locked" not in data["settings"]:
-                            data["settings"]["widget_locked"] = False
-                        if "widget_bell_action" not in data["settings"]:
-                            data["settings"]["widget_bell_action"] = "Silenciar sonido"
-                        if "widget_show_status" not in data["settings"]:
-                            data["settings"]["widget_show_status"] = True
-                        if "widget_bell_muted" not in data["settings"]:
-                            data["settings"]["widget_bell_muted"] = False
+                        for k, v in default_settings.items():
+                            if k not in data["settings"]:
+                                data["settings"][k] = v
                     if "tareas" not in data:
                         data["tareas"] = []
                     # Asegurar campos nuevos en cada curso
@@ -225,7 +222,7 @@ def cargar_datos():
                     return data
             except Exception:
                 pass
-        return {"version": 4, "settings": {"vacaciones": False, "tolerancia_min": 30, "notif_anticipacion": 5, "notif_sonido": "Reminder", "theme": "Modern Blue", "remote_notif_type": "Desactivado", "discord_webhook": "", "telegram_token": "", "telegram_chat_id": "", "whatsapp_phone": "", "whatsapp_apikey": "", "show_mini_widget": False, "widget_opacity": 0.7, "widget_locked": False, "widget_bell_action": "Silenciar sonido", "widget_show_status": True, "widget_bell_muted": False}, "cursos": [], "tareas": []}
+        return {"version": 4, "settings": default_settings.copy(), "cursos": [], "tareas": []}
 
 
 def guardar_datos(datos):
@@ -407,23 +404,71 @@ class MiniWidget(tk.Toplevel):
         super().__init__(app.root)
         self.app = app
         self.title("Widget")
-        self.geometry("280x95")
+        
+        # Opciones de escala y tamaño dinámico
+        scale = self.app.datos.get("settings", {}).get("widget_scale", "100%")
+        if scale == "80%":
+            self.w, self.h = 224, 76
+            self.size_title = 8
+            self.size_class = 10
+            self.size_time = 9
+            self.pady_title = (4, 0)
+            self.pady_capsule = (1, 4)
+            self.wraplength = 170
+        elif scale == "120%":
+            self.w, self.h = 336, 114
+            self.size_title = 11
+            self.size_class = 14
+            self.size_time = 13
+            self.pady_title = (10, 0)
+            self.pady_capsule = (3, 10)
+            self.wraplength = 260
+        else: # 100%
+            self.w, self.h = 280, 95
+            self.size_title = 9
+            self.size_class = 12
+            self.size_time = 11
+            self.pady_title = (8, 0)
+            self.pady_capsule = (2, 8)
+            self.wraplength = 220
+
         self.overrideredirect(True)
-        self.attributes("-topmost", True)
+        
+        # Modo de pantalla (Frente vs Fondo)
+        pinned_mode = self.app.datos.get("settings", {}).get("widget_pinned_mode", "Frente")
+        self.is_pinned = (pinned_mode == "Frente")
+        self.attributes("-topmost", self.is_pinned)
         
         opacity = self.app.datos.get("settings", {}).get("widget_opacity", 0.7)
         self.attributes("-alpha", opacity)
         self.configure(bg="#121212")
         self.protocol("WM_DELETE_WINDOW", self.hide_widget)
         
-        self.is_pinned = True
-        
-        # Posición inicial: Esquina inferior derecha
-        screen_w = self.winfo_screenwidth()
-        screen_h = self.winfo_screenheight()
-        self.geometry(f"280x95+{screen_w - 300}+{screen_h - 150}")
-        
-        # Contenedor con Borde de Acercamiento Estilo Dashboard
+        # Posición inicial: automática o manual
+        preset = self.app.datos.get("settings", {}).get("widget_preset_position", "Manual")
+        if preset != "Manual":
+            screen_w = self.winfo_screenwidth()
+            screen_h = self.winfo_screenheight()
+            margin = 25
+            if preset == "Arriba-Derecha":
+                x = screen_w - self.w - margin
+                y = margin
+            elif preset == "Arriba-Izquierda":
+                x = margin
+                y = margin
+            elif preset == "Abajo-Derecha":
+                x = screen_w - self.w - margin
+                y = screen_h - self.h - margin - 50
+            elif preset == "Abajo-Izquierda":
+                x = margin
+                y = screen_h - self.h - margin - 50
+            self.geometry(f"{self.w}x{self.h}+{x}+{y}")
+        else:
+            screen_w = self.winfo_screenwidth()
+            screen_h = self.winfo_screenheight()
+            self.geometry(f"{self.w}x{self.h}+{screen_w - self.w - 20}+{screen_h - self.h - 55}")
+            
+        # Contenedor principal
         self.main_frame = ctk.CTkFrame(
             self,
             fg_color="#1c1c1e",
@@ -445,31 +490,30 @@ class MiniWidget(tk.Toplevel):
         self.lbl_title = ctk.CTkLabel(
             self.main_frame,
             text="📅 PRÓXIMA CLASE",
-            font=ctk.CTkFont(size=9, weight="bold"),
+            font=ctk.CTkFont(size=self.size_title, weight="bold"),
             text_color="gray"
         )
-        self.lbl_title.pack(anchor="w", padx=15, pady=(8, 0))
+        self.lbl_title.pack(anchor="w", padx=15, pady=self.pady_title)
         self.lbl_title.bind("<Button-1>", self.start_drag)
         self.lbl_title.bind("<B1-Motion>", self.do_drag)
         
         self.lbl_class = ctk.CTkLabel(
             self.main_frame,
             text="Cargando...",
-            font=ctk.CTkFont(size=12, weight="bold"),
+            font=ctk.CTkFont(size=self.size_class, weight="bold"),
             text_color="white",
             anchor="w",
             justify="left",
-            wraplength=220
+            wraplength=self.wraplength
         )
         self.lbl_class.pack(fill="x", padx=15, pady=(2, 2))
         self.lbl_class.bind("<Button-1>", self.start_drag)
         self.lbl_class.bind("<B1-Motion>", self.do_drag)
         
-        # Cápsula de tiempo redondeada
+        # Cápsula de tiempo
         theme = self.app.datos.get("settings", {}).get("theme", "Modern Blue")
         t_colors = THEMES.get(theme, THEMES["Modern Blue"])
         bg_app = t_colors["bg_app"]
-        accent = t_colors["accent"]
         
         self.time_capsule = ctk.CTkFrame(
             self.main_frame,
@@ -477,15 +521,15 @@ class MiniWidget(tk.Toplevel):
             corner_radius=15,
             height=28
         )
-        self.time_capsule.pack(anchor="w", padx=15, pady=(2, 8))
+        self.time_capsule.pack(anchor="w", padx=15, pady=self.pady_capsule)
         self.time_capsule.bind("<Button-1>", self.start_drag)
         self.time_capsule.bind("<B1-Motion>", self.do_drag)
         
         self.lbl_clock_icon = ctk.CTkLabel(
             self.time_capsule,
             text="🕒",
-            font=ctk.CTkFont(size=11),
-            text_color=accent
+            font=ctk.CTkFont(size=self.size_time - 1),
+            text_color="#2563eb"
         )
         self.lbl_clock_icon.pack(side="left", padx=(10, 4), pady=2)
         self.lbl_clock_icon.bind("<Button-1>", self.start_drag)
@@ -494,60 +538,66 @@ class MiniWidget(tk.Toplevel):
         self.lbl_time = ctk.CTkLabel(
             self.time_capsule,
             text="",
-            font=ctk.CTkFont(size=11, weight="bold"),
-            text_color=accent
+            font=ctk.CTkFont(size=self.size_time, weight="bold"),
+            text_color="#2563eb"
         )
         self.lbl_time.pack(side="left", padx=(0, 10), pady=2)
         self.lbl_time.bind("<Button-1>", self.start_drag)
         self.lbl_time.bind("<B1-Motion>", self.do_drag)
+        
+        # Botones de control en cabecera
+        btn_y = 6 if scale != "80%" else 3
+        btn_w_h = 22 if scale != "80%" else 18
+        btn_font_s = 10 if scale != "80%" else 8
         
         # Botón de Campana interactivo
         bell_muted = self.app.datos.get("settings", {}).get("widget_bell_muted", False)
         self.btn_bell = ctk.CTkButton(
             self.main_frame,
             text="🔕" if bell_muted else "🔔",
-            width=22,
-            height=22,
-            font=ctk.CTkFont(size=10),
+            width=btn_w_h,
+            height=btn_w_h,
+            font=ctk.CTkFont(size=btn_font_s),
             fg_color="#2d2d30",
             hover_color="#3f3f46",
             text_color="white",
             command=self.toggle_bell
         )
-        self.btn_bell.place(x=196, y=6)
+        self.btn_bell.place(x=self.w - (btn_w_h * 3 + 12), y=btn_y)
         self.tip_bell = ToolTip(self.btn_bell, "Campana silenciada" if bell_muted else "Campana activa")
         
-        # Botón de Pin integrado (chincheta)
+        # Botón de Pin
         self.btn_pin = ctk.CTkButton(
             self.main_frame,
             text="📌",
-            width=22,
-            height=22,
-            font=ctk.CTkFont(size=10),
+            width=btn_w_h,
+            height=btn_w_h,
+            font=ctk.CTkFont(size=btn_font_s),
             fg_color="#2d2d30",
             hover_color="#3f3f46",
             text_color="white",
             command=self.toggle_pin
         )
-        self.btn_pin.place(x=222, y=6)
-        ToolTip(self.btn_pin, "Fijar al frente (siempre encima de otras ventanas)")
+        if pinned_mode != "Fondo":
+            self.btn_pin.place(x=self.w - (btn_w_h * 2 + 8), y=btn_y)
+            ToolTip(self.btn_pin, "Fijar al frente (siempre encima de otras ventanas)")
         
-        # Botón de cerrar integrado
+        # Botón de cerrar
         self.btn_close = ctk.CTkButton(
             self.main_frame,
             text="×",
-            width=22,
-            height=22,
-            font=ctk.CTkFont(size=14, weight="bold"),
+            width=btn_w_h,
+            height=btn_w_h,
+            font=ctk.CTkFont(size=btn_font_s + 4, weight="bold"),
             fg_color="transparent",
             hover_color="#c82333",
             text_color="gray",
             command=self.hide_widget
         )
-        self.btn_close.place(x=248, y=6)
+        self.btn_close.place(x=self.w - (btn_w_h + 4), y=btn_y)
         ToolTip(self.btn_close, "Ocultar Widget")
         
-        # Punto circular indicador de estado
+        # Punto circular de estado
         self.status_canvas = tk.Canvas(
             self.main_frame,
             width=12,
@@ -560,16 +610,21 @@ class MiniWidget(tk.Toplevel):
         self.status_canvas.bind("<B1-Motion>", self.do_drag)
         
         self.update_colors()
+        self.apply_click_through()
         self.tick()
         
     def start_drag(self, event):
-        if self.app.datos.get("settings", {}).get("widget_locked", False):
+        preset = self.app.datos.get("settings", {}).get("widget_preset_position", "Manual")
+        locked = self.app.datos.get("settings", {}).get("widget_locked", False)
+        if preset != "Manual" or locked:
             return
         self.x = event.x
         self.y = event.y
         
     def do_drag(self, event):
-        if self.app.datos.get("settings", {}).get("widget_locked", False):
+        preset = self.app.datos.get("settings", {}).get("widget_preset_position", "Manual")
+        locked = self.app.datos.get("settings", {}).get("widget_locked", False)
+        if preset != "Manual" or locked:
             return
         deltax = event.x - self.x
         deltay = event.y - self.y
@@ -578,6 +633,8 @@ class MiniWidget(tk.Toplevel):
         self.geometry(f"+{x}+{y}")
         
     def on_enter(self, event):
+        if self.app.datos.get("settings", {}).get("widget_click_through", False):
+            return
         self.attributes("-alpha", 1.0)
         
     def on_leave(self, event):
@@ -587,10 +644,14 @@ class MiniWidget(tk.Toplevel):
     def toggle_pin(self):
         self.is_pinned = not self.is_pinned
         self.attributes("-topmost", self.is_pinned)
-        if self.is_pinned:
-            self.btn_pin.configure(fg_color="#2563eb", text_color="white")
-        else:
-            self.btn_pin.configure(fg_color="#2d2d30", text_color="#aeaeae")
+        
+        with data_lock:
+            self.app.datos["settings"]["widget_pinned_mode"] = "Frente" if self.is_pinned else "Normal"
+            guardar_datos(self.app.datos)
+            
+        if hasattr(self.app, 'opt_widget_pinned_mode'):
+            self.app.opt_widget_pinned_mode.set("Siempre al frente" if self.is_pinned else "Normal")
+            
         self.update_colors()
         
     def toggle_bell(self):
@@ -620,6 +681,22 @@ class MiniWidget(tk.Toplevel):
         self.destroy()
         self.app.mini_widget = None
         
+    def apply_click_through(self):
+        enabled = self.app.datos.get("settings", {}).get("widget_click_through", False)
+        try:
+            hwnd = self.winfo_id()
+            gwl_exstyle = -20
+            ws_ex_transparent = 0x00000020
+            ws_ex_layered = 0x00080000
+            
+            style = ctypes.windll.user32.GetWindowLongW(hwnd, gwl_exstyle)
+            if enabled:
+                ctypes.windll.user32.SetWindowLongW(hwnd, gwl_exstyle, style | ws_ex_transparent | ws_ex_layered)
+            else:
+                ctypes.windll.user32.SetWindowLongW(hwnd, gwl_exstyle, style & ~ws_ex_transparent)
+        except Exception as e:
+            print(f"Error applying click-through: {e}")
+            
     def update_colors(self):
         theme = self.app.datos.get("settings", {}).get("theme", "Modern Blue")
         t_colors = THEMES.get(theme, THEMES["Modern Blue"])
@@ -628,17 +705,28 @@ class MiniWidget(tk.Toplevel):
         bg_frame = t_colors["bg_frame"]
         text = t_colors["text"]
         
+        color_override = self.app.datos.get("settings", {}).get("widget_color_override", "Tema principal")
+        colors_map = {
+            "Tema principal": accent,
+            "Azul": "#3b82f6",
+            "Violeta": "#8b5cf6",
+            "Esmeralda": "#10b981",
+            "Naranja": "#f97316",
+            "Dorado": "#eab308"
+        }
+        widget_accent = colors_map.get(color_override, accent)
+        
         self.configure(bg=bg_app)
-        self.main_frame.configure(fg_color=bg_frame, border_color=accent)
+        self.main_frame.configure(fg_color=bg_frame, border_color=widget_accent)
         self.lbl_title.configure(text_color="#aeaeae")
         self.lbl_class.configure(text_color=text)
-        self.lbl_time.configure(text_color=accent)
-        self.lbl_clock_icon.configure(text_color=accent)
+        self.lbl_time.configure(text_color=widget_accent)
+        self.lbl_clock_icon.configure(text_color=widget_accent)
         self.time_capsule.configure(fg_color=bg_app)
         self.status_canvas.configure(bg=bg_frame)
         
         if self.is_pinned:
-            self.btn_pin.configure(fg_color=accent, text_color="white")
+            self.btn_pin.configure(fg_color=widget_accent, text_color="white")
         else:
             self.btn_pin.configure(fg_color=bg_app, text_color="#aeaeae")
         
@@ -649,47 +737,75 @@ class MiniWidget(tk.Toplevel):
         except:
             return
             
-        next_lbl = self.app._get_next_class_info()
-        if next_lbl.startswith("Próxima:"):
-            parts = next_lbl.split(" (en ")
-            nombre = parts[0].replace("Próxima: ", "").upper()
-            countdown = parts[1].replace(")", "") if len(parts) > 1 else "Ahora"
-            self.lbl_class.configure(text=nombre)
-            self.lbl_time.configure(text=f"En {countdown}")
+        pinned_mode = self.app.datos.get("settings", {}).get("widget_pinned_mode", "Frente")
+        if pinned_mode == "Fondo":
+            try:
+                self.lower()
+                hwnd = self.winfo_id()
+                ctypes.windll.user32.SetWindowPos(hwnd, 1, 0, 0, 0, 0, 0x0010 | 2 | 1)
+            except:
+                pass
+                
+        c_nombre, t_date, diff_sec = self.app._get_next_class_datetime()
+        time_format = self.app.datos.get("settings", {}).get("widget_time_format", "Amigable")
+        
+        if c_nombre:
+            self.lbl_class.configure(text=c_nombre.upper())
             
-            if len(nombre) > 30:
-                self.lbl_class.configure(font=ctk.CTkFont(size=10, weight="bold"))
+            if len(c_nombre) > 30:
+                self.lbl_class.configure(font=ctk.CTkFont(size=self.size_class - 2, weight="bold"))
             else:
-                self.lbl_class.configure(font=ctk.CTkFont(size=12, weight="bold"))
+                self.lbl_class.configure(font=ctk.CTkFont(size=self.size_class, weight="bold"))
+                
+            if time_format == "Preciso (HH:MM:SS)":
+                hours = diff_sec // 3600
+                minutes = (diff_sec % 3600) // 60
+                seconds = diff_sec % 60
+                time_str = f"Faltan {str(hours).zfill(2)}:{str(minutes).zfill(2)}:{str(seconds).zfill(2)}"
+            else:
+                hours = diff_sec // 3600
+                minutes = (diff_sec % 3600) // 60
+                if hours > 24:
+                    days = hours // 24
+                    h_remain = hours % 24
+                    time_str = f"En {days}d {h_remain}h"
+                elif hours > 0:
+                    time_str = f"En {hours}h {minutes}m"
+                else:
+                    time_str = f"En {minutes}m"
+            self.lbl_time.configure(text=time_str)
         else:
             self.lbl_class.configure(text="SIN CLASES")
             self.lbl_time.configure(text="No hay clases programadas")
-            self.lbl_class.configure(font=ctk.CTkFont(size=12, weight="bold"))
+            self.lbl_class.configure(font=ctk.CTkFont(size=self.size_class, weight="bold"))
             
-        # Determine LED status color
         vacaciones = self.app.datos.get("settings", {}).get("vacaciones", False)
         if vacaciones:
-            status_color = "#f97316" # Orange
+            status_color = "#f97316"
         else:
-            status_color = "#3b82f6" # Blue
-            if next_lbl.startswith("Próxima:") and "(en " in next_lbl:
-                try:
-                    time_part = next_lbl.split("(en ")[1].replace(")", "")
-                    if "d" not in time_part and "h" not in time_part:
-                        mins = int(time_part.replace("m", "").strip())
-                        if mins < 10:
-                            status_color = "#10b981" # Green
-                except:
-                    pass
-                    
+            status_color = "#3b82f6"
+            if c_nombre and diff_sec < 600:
+                status_color = "#10b981"
+                
         theme = self.app.datos.get("settings", {}).get("theme", "Modern Blue")
         t_colors = THEMES.get(theme, THEMES["Modern Blue"])
         accent = t_colors["accent"]
+        
+        color_override = self.app.datos.get("settings", {}).get("widget_color_override", "Tema principal")
+        colors_map = {
+            "Tema principal": accent,
+            "Azul": "#3b82f6",
+            "Violeta": "#8b5cf6",
+            "Esmeralda": "#10b981",
+            "Naranja": "#f97316",
+            "Dorado": "#eab308"
+        }
+        widget_accent = colors_map.get(color_override, accent)
+        
         if status_color == "#3b82f6":
-            status_color = accent
+            status_color = widget_accent
             
         self.draw_status_dot(status_color)
-        
         self.after(1000, self.tick)
 
 class AbreCursosApp:
@@ -1268,8 +1384,34 @@ class AbreCursosApp:
         if self.datos.get("settings", {}).get("show_mini_widget", False):
             self.sw_mini_widget.select()
         ToolTip(self.sw_mini_widget, "Muestra una pequeña ventana flotante en tu escritorio con la cuenta regresiva de la próxima clase.")
+
+        # Fila 2: Modo de pantalla (Fijación)
+        row_pin = ctk.CTkFrame(wf_group, fg_color="transparent")
+        row_pin.pack(fill="x", padx=20, pady=4)
+        ctk.CTkLabel(row_pin, text="Modo de fijación en pantalla:", font=ctk.CTkFont(size=13)).pack(side="left")
         
-        # Fila 2: Opacidad
+        pinned_val = self.datos.get("settings", {}).get("widget_pinned_mode", "Frente")
+        pinned_map = {"Frente": "Siempre al frente", "Normal": "Normal", "Fondo": "Fijo en fondo de escritorio"}
+        self.opt_widget_pinned_mode = ctk.CTkOptionMenu(
+            row_pin,
+            values=["Siempre al frente", "Normal", "Fijo en fondo de escritorio"],
+            command=self.cambiar_modo_fijacion_widget
+        )
+        self.opt_widget_pinned_mode.pack(side="right")
+        self.opt_widget_pinned_mode.set(pinned_map.get(pinned_val, "Siempre al frente"))
+        ToolTip(self.opt_widget_pinned_mode, "Configura si el widget flota por encima de todo o se queda fijo al fondo de escritorio.")
+
+        # Fila 3: Click-Through (Atravesar clics)
+        row_ct = ctk.CTkFrame(wf_group, fg_color="transparent")
+        row_ct.pack(fill="x", padx=20, pady=4)
+        ctk.CTkLabel(row_ct, text="Atravesar clics (Click-through):", font=ctk.CTkFont(size=13)).pack(side="left")
+        self.sw_widget_click_through = ctk.CTkSwitch(row_ct, text="", command=self.toggle_widget_click_through)
+        self.sw_widget_click_through.pack(side="right")
+        if self.datos.get("settings", {}).get("widget_click_through", False):
+            self.sw_widget_click_through.select()
+        ToolTip(self.sw_widget_click_through, "Permite hacer clic a través del widget flotante para interactuar con lo que está debajo.")
+        
+        # Fila 4: Opacidad
         row_opac = ctk.CTkFrame(wf_group, fg_color="transparent")
         row_opac.pack(fill="x", padx=20, pady=4)
         ctk.CTkLabel(row_opac, text="Opacidad en reposo:", font=ctk.CTkFont(size=13)).pack(side="left")
@@ -1286,7 +1428,7 @@ class AbreCursosApp:
         self.opt_opacity.set(opacity_str_map.get(opacity_val, "70%"))
         ToolTip(self.opt_opacity, "Opacidad de la ventana cuando el cursor no está encima.")
         
-        # Fila 3: Bloquear Posición
+        # Fila 5: Bloquear Posición
         row_lock = ctk.CTkFrame(wf_group, fg_color="transparent")
         row_lock.pack(fill="x", padx=20, pady=4)
         ctk.CTkLabel(row_lock, text="Bloquear posición (evitar arrastre):", font=ctk.CTkFont(size=13)).pack(side="left")
@@ -1295,8 +1437,68 @@ class AbreCursosApp:
         if self.datos.get("settings", {}).get("widget_locked", False):
             self.sw_widget_lock.select()
         ToolTip(self.sw_widget_lock, "Evita mover accidentalmente el widget flotante arrastrándolo.")
+
+        # Fila 6: Escala / Tamaño
+        row_scale = ctk.CTkFrame(wf_group, fg_color="transparent")
+        row_scale.pack(fill="x", padx=20, pady=4)
+        ctk.CTkLabel(row_scale, text="Escala de tamaño del widget:", font=ctk.CTkFont(size=13)).pack(side="left")
         
-        # Fila 4: Acción de Campana
+        scale_val = self.datos.get("settings", {}).get("widget_scale", "100%")
+        self.opt_scale = ctk.CTkOptionMenu(
+            row_scale,
+            values=["80%", "100%", "120%"],
+            command=self.cambiar_escala_widget
+        )
+        self.opt_scale.pack(side="right")
+        self.opt_scale.set(scale_val)
+        ToolTip(self.opt_scale, "Escala el tamaño general del widget flotante en tu escritorio.")
+
+        # Fila 7: Esquinas predefinidas (Posición)
+        row_preset = ctk.CTkFrame(wf_group, fg_color="transparent")
+        row_preset.pack(fill="x", padx=20, pady=4)
+        ctk.CTkLabel(row_preset, text="Posición automática del widget:", font=ctk.CTkFont(size=13)).pack(side="left")
+        
+        preset_val = self.datos.get("settings", {}).get("widget_preset_position", "Manual")
+        self.opt_preset = ctk.CTkOptionMenu(
+            row_preset,
+            values=["Manual", "Arriba-Derecha", "Arriba-Izquierda", "Abajo-Derecha", "Abajo-Izquierda"],
+            command=self.cambiar_posicion_esquina
+        )
+        self.opt_preset.pack(side="right")
+        self.opt_preset.set(preset_val)
+        ToolTip(self.opt_preset, "Fija el widget de manera automática a una esquina de la pantalla.")
+
+        # Fila 8: Formato del tiempo
+        row_time_f = ctk.CTkFrame(wf_group, fg_color="transparent")
+        row_time_f.pack(fill="x", padx=20, pady=4)
+        ctk.CTkLabel(row_time_f, text="Formato de cuenta regresiva:", font=ctk.CTkFont(size=13)).pack(side="left")
+        
+        time_f_val = self.datos.get("settings", {}).get("widget_time_format", "Amigable")
+        self.opt_time_format = ctk.CTkOptionMenu(
+            row_time_f,
+            values=["Amigable", "Preciso (HH:MM:SS)"],
+            command=self.cambiar_formato_tiempo
+        )
+        self.opt_time_format.pack(side="right")
+        self.opt_time_format.set(time_f_val)
+        ToolTip(self.opt_time_format, "Alterna entre tiempo amigable aproximado o cuenta exacta tipo cronómetro.")
+
+        # Fila 9: Color independiente del Widget
+        row_w_color = ctk.CTkFrame(wf_group, fg_color="transparent")
+        row_w_color.pack(fill="x", padx=20, pady=4)
+        ctk.CTkLabel(row_w_color, text="Color de acento del widget:", font=ctk.CTkFont(size=13)).pack(side="left")
+        
+        w_color_val = self.datos.get("settings", {}).get("widget_color_override", "Tema principal")
+        self.opt_w_color = ctk.CTkOptionMenu(
+            row_w_color,
+            values=["Tema principal", "Azul", "Violeta", "Esmeralda", "Naranja", "Dorado"],
+            command=self.cambiar_color_override_widget
+        )
+        self.opt_w_color.pack(side="right")
+        self.opt_w_color.set(w_color_val)
+        ToolTip(self.opt_w_color, "Configura un color de acento único para el widget flotante.")
+        
+        # Fila 10: Acción de Campana
         row_bell = ctk.CTkFrame(wf_group, fg_color="transparent")
         row_bell.pack(fill="x", padx=20, pady=4)
         ctk.CTkLabel(row_bell, text="Acción del botón de la campana:", font=ctk.CTkFont(size=13)).pack(side="left")
@@ -1311,7 +1513,7 @@ class AbreCursosApp:
         self.opt_bell_action.set(bell_action)
         ToolTip(self.opt_bell_action, "Configura qué sucede al hacer clic sobre el botón de campana del widget flotante.")
         
-        # Fila 5: Indicador de Estado
+        # Fila 11: Indicador de Estado
         row_status = ctk.CTkFrame(wf_group, fg_color="transparent")
         row_status.pack(fill="x", padx=20, pady=4)
         ctk.CTkLabel(row_status, text="Mostrar indicador circular de estado:", font=ctk.CTkFont(size=13)).pack(side="left")
@@ -1528,6 +1730,81 @@ class AbreCursosApp:
             except:
                 pass
         self.agregar_log(f"Indicador circular de estado del widget: {'MOSTRADO' if val else 'OCULTADO'}")
+
+    def cambiar_modo_fijacion_widget(self, val):
+        mode_map = {"Siempre al frente": "Frente", "Normal": "Normal", "Fijo en fondo de escritorio": "Fondo"}
+        mode = mode_map.get(val, "Frente")
+        with data_lock:
+            self.datos["settings"]["widget_pinned_mode"] = mode
+            guardar_datos(self.datos)
+        if hasattr(self, 'mini_widget') and self.mini_widget is not None:
+            try:
+                self.mini_widget.is_pinned = (mode == "Frente")
+                self.mini_widget.attributes("-topmost", self.mini_widget.is_pinned)
+                if mode == "Fondo":
+                    self.mini_widget.btn_pin.place_forget()
+                    self.mini_widget.lower()
+                else:
+                    btn_w_h = 22 if self.mini_widget.w == 280 else (18 if self.mini_widget.w == 224 else 22)
+                    btn_y = 6 if self.mini_widget.w != 224 else 3
+                    self.mini_widget.btn_pin.place(x=self.mini_widget.w - (btn_w_h * 2 + 8), y=btn_y)
+                self.mini_widget.update_colors()
+            except:
+                pass
+        self.agregar_log(f"Modo de pantalla del widget cambiado a: {val}")
+
+    def toggle_widget_click_through(self):
+        val = self.sw_widget_click_through.get()
+        with data_lock:
+            self.datos["settings"]["widget_click_through"] = bool(val)
+            guardar_datos(self.datos)
+        if hasattr(self, 'mini_widget') and self.mini_widget is not None:
+            try:
+                self.mini_widget.apply_click_through()
+            except:
+                pass
+        self.agregar_log(f"Atravesar clics (Click-through) del widget: {'ACTIVADO' if val else 'DESACTIVADO'}")
+
+    def cambiar_escala_widget(self, val):
+        with data_lock:
+            self.datos["settings"]["widget_scale"] = val
+            guardar_datos(self.datos)
+        if hasattr(self, 'mini_widget') and self.mini_widget is not None:
+            try:
+                self.mini_widget.destroy()
+                self.mini_widget = MiniWidget(self)
+            except:
+                pass
+        self.agregar_log(f"Escala de tamaño del widget flotante cambiada a {val}")
+
+    def cambiar_posicion_esquina(self, val):
+        with data_lock:
+            self.datos["settings"]["widget_preset_position"] = val
+            guardar_datos(self.datos)
+        if hasattr(self, 'mini_widget') and self.mini_widget is not None:
+            try:
+                self.mini_widget.destroy()
+                self.mini_widget = MiniWidget(self)
+            except:
+                pass
+        self.agregar_log(f"Posición automática del widget flotante cambiada a {val}")
+
+    def cambiar_formato_tiempo(self, val):
+        with data_lock:
+            self.datos["settings"]["widget_time_format"] = val
+            guardar_datos(self.datos)
+        self.agregar_log(f"Formato de cuenta regresiva del widget cambiado a: {val}")
+
+    def cambiar_color_override_widget(self, val):
+        with data_lock:
+            self.datos["settings"]["widget_color_override"] = val
+            guardar_datos(self.datos)
+        if hasattr(self, 'mini_widget') and self.mini_widget is not None:
+            try:
+                self.mini_widget.update_colors()
+            except:
+                pass
+        self.agregar_log(f"Color de acento del widget flotante cambiado a {val}")
 
     def exportar_reporte_csv(self):
         path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV Files", "*.csv")], initialfile="reporte_asistencia.csv")
@@ -2629,7 +2906,7 @@ rmdir /s /q "{appdata}"
             except Exception:
                 pass
 
-    def _get_next_class_info(self):
+    def _get_next_class_datetime(self):
         now = datetime.now()
         current_day_idx = (now.weekday() + 1) % 7
         current_time_min = now.hour * 60 + now.minute
@@ -2641,7 +2918,7 @@ rmdir /s /q "{appdata}"
             cursos = [dict(c) for c in self.datos.get("cursos", []) if c.get("activo", True)]
             
         if not cursos:
-            return "No hay cursos programados"
+            return None, None, 0
             
         for c in cursos:
             hora = int(c["hora"])
@@ -2663,8 +2940,12 @@ rmdir /s /q "{appdata}"
                     break
                     
         if next_class:
-            c_nombre, t_date = next_class
-            diff_sec = int(min_diff_seconds)
+            return next_class[0], next_class[1], int(min_diff_seconds)
+        return None, None, 0
+
+    def _get_next_class_info(self):
+        c_nombre, t_date, diff_sec = self._get_next_class_datetime()
+        if c_nombre:
             hours = diff_sec // 3600
             minutes = (diff_sec % 3600) // 60
             
