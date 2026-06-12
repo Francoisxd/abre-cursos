@@ -1,5 +1,5 @@
 {
-  "version": "2.5.3",
+  "version": "2.5.4",
   "url": "https://github.com/Francoisxd/abre-cursos/raw/main/AbreCursos.zip",
-  "changelog": "Versión 2.5.3: Ajustes visuales perfeccionados. Se eliminaron textos descriptivos estáticos y se activaron los globos de ayuda flotantes (ToolTips) vinculados a los títulos de la izquierda."
+  "changelog": "Versión 2.5.4: Ocultamiento dinámico del panel de ajustes secundarios del widget flotante. Ahora las opciones del widget solo se muestran si el switch de visualización de widget en escritorio está activado."
 }

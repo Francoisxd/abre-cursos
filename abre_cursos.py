@@ -31,7 +31,7 @@ import subprocess
 import ctypes
 
 # Versión del programa y repositorio
-VERSION = "2.5.3"
+VERSION = "2.5.4"
 GITHUB_USER = "Francoisxd"
 GITHUB_REPO = "abre-cursos"
 
@@ -1470,8 +1470,11 @@ class AbreCursosApp:
         if self.datos.get("settings", {}).get("show_mini_widget", False):
             self.sw_mini_widget.select()
 
+        # Contenedor para los ajustes secundarios (ocultable dinámicamente)
+        self.wf_sub_group = ctk.CTkFrame(wf_group, fg_color="transparent")
+        
         # Fila 2: Modo de pantalla (Fijación)
-        row_pin = crear_fila(wf_group, "Modo de fijación en pantalla:", "Configura si el widget flota por encima de todo o se queda fijo al fondo de escritorio.", is_sub_row=True)
+        row_pin = crear_fila(self.wf_sub_group, "Modo de fijación en pantalla:", "Configura si el widget flota por encima de todo o se queda fijo al fondo de escritorio.", is_sub_row=True)
         pinned_val = self.datos.get("settings", {}).get("widget_pinned_mode", "Frente")
         pinned_map = {"Frente": "Siempre al frente", "Normal": "Normal", "Fondo": "Fijo en fondo de escritorio"}
         self.opt_widget_pinned_mode = ctk.CTkOptionMenu(
@@ -1483,14 +1486,14 @@ class AbreCursosApp:
         self.opt_widget_pinned_mode.set(pinned_map.get(pinned_val, "Siempre al frente"))
 
         # Fila 3: Click-Through (Atravesar clics)
-        row_ct = crear_fila(wf_group, "Atravesar clics (Click-through):", "Permite hacer clic a través del widget flotante para interactuar con lo que está debajo.", is_sub_row=True)
+        row_ct = crear_fila(self.wf_sub_group, "Atravesar clics (Click-through):", "Permite hacer clic a través del widget flotante para interactuar con lo que está debajo.", is_sub_row=True)
         self.sw_widget_click_through = ctk.CTkSwitch(row_ct, text="", command=self.toggle_widget_click_through)
         self.sw_widget_click_through.pack(side="right", padx=20)
         if self.datos.get("settings", {}).get("widget_click_through", False):
             self.sw_widget_click_through.select()
         
         # Fila 4: Opacidad
-        row_opac = crear_fila(wf_group, "Opacidad en reposo:", "Opacidad de la ventana cuando el cursor no está encima.", is_sub_row=True)
+        row_opac = crear_fila(self.wf_sub_group, "Opacidad en reposo:", "Opacidad de la ventana cuando el cursor no está encima.", is_sub_row=True)
         opacity_val = self.datos.get("settings", {}).get("widget_opacity", 0.7)
         opacity_str_map = {0.5: "50%", 0.7: "70%", 0.85: "85%", 1.0: "100%"}
         self.opt_opacity = ctk.CTkOptionMenu(
@@ -1502,14 +1505,14 @@ class AbreCursosApp:
         self.opt_opacity.set(opacity_str_map.get(opacity_val, "70%"))
         
         # Fila 5: Bloquear Posición
-        row_lock = crear_fila(wf_group, "Bloquear posición (evitar arrastre):", "Evita mover accidentalmente el widget flotante arradtrándolo.", is_sub_row=True)
+        row_lock = crear_fila(self.wf_sub_group, "Bloquear posición (evitar arrastre):", "Evita mover accidentalmente el widget flotante arradtrándolo.", is_sub_row=True)
         self.sw_widget_lock = ctk.CTkSwitch(row_lock, text="", command=self.toggle_widget_lock)
         self.sw_widget_lock.pack(side="right", padx=20)
         if self.datos.get("settings", {}).get("widget_locked", False):
             self.sw_widget_lock.select()
 
         # Fila 6: Escala / Tamaño
-        row_scale = crear_fila(wf_group, "Escala de tamaño del widget:", "Escala el tamaño general del widget flotante en tu escritorio.", is_sub_row=True)
+        row_scale = crear_fila(self.wf_sub_group, "Escala de tamaño del widget:", "Escala el tamaño general del widget flotante en tu escritorio.", is_sub_row=True)
         scale_val = self.datos.get("settings", {}).get("widget_scale", "100%")
         self.opt_scale = ctk.CTkOptionMenu(
             row_scale,
@@ -1520,7 +1523,7 @@ class AbreCursosApp:
         self.opt_scale.set(scale_val)
 
         # Fila 7: Esquinas predefinidas (Posición)
-        row_preset = crear_fila(wf_group, "Posición automática del widget:", "Fija el widget de manera automática a una esquina de la pantalla.", is_sub_row=True)
+        row_preset = crear_fila(self.wf_sub_group, "Posición automática del widget:", "Fija el widget de manera automática a una esquina de la pantalla.", is_sub_row=True)
         preset_val = self.datos.get("settings", {}).get("widget_preset_position", "Manual")
         self.opt_preset = ctk.CTkOptionMenu(
             row_preset,
@@ -1531,7 +1534,7 @@ class AbreCursosApp:
         self.opt_preset.set(preset_val)
 
         # Fila 8: Formato del tiempo
-        row_time_f = crear_fila(wf_group, "Formato de cuenta regresiva:", "Alterna entre tiempo amigable aproximado o cuenta exacta tipo cronómetro.", is_sub_row=True)
+        row_time_f = crear_fila(self.wf_sub_group, "Formato de cuenta regresiva:", "Alterna entre tiempo amigable aproximado o cuenta exacta tipo cronómetro.", is_sub_row=True)
         time_f_val = self.datos.get("settings", {}).get("widget_time_format", "Amigable")
         self.opt_time_format = ctk.CTkOptionMenu(
             row_time_f,
@@ -1542,7 +1545,7 @@ class AbreCursosApp:
         self.opt_time_format.set(time_f_val)
 
         # Fila 9: Color independiente del Widget
-        row_w_color = crear_fila(wf_group, "Color de acento del widget:", "Configura un color de acento único para el widget flotante.", is_sub_row=True)
+        row_w_color = crear_fila(self.wf_sub_group, "Color de acento del widget:", "Configura un color de acento único para el widget flotante.", is_sub_row=True)
         w_color_val = self.datos.get("settings", {}).get("widget_color_override", "Tema principal")
         self.opt_w_color = ctk.CTkOptionMenu(
             row_w_color,
@@ -1553,7 +1556,7 @@ class AbreCursosApp:
         self.opt_w_color.set(w_color_val)
         
         # Fila 10: Acción de Campana
-        row_bell = crear_fila(wf_group, "Acción del botón de la campana:", "Configura qué sucede al hacer clic sobre el botón de campana del widget flotante.", is_sub_row=True)
+        row_bell = crear_fila(self.wf_sub_group, "Acción del botón de la campana:", "Configura qué sucede al hacer clic sobre el botón de campana del widget flotante.", is_sub_row=True)
         bell_action = self.datos.get("settings", {}).get("widget_bell_action", "Silenciar sonido")
         self.opt_bell_action = ctk.CTkOptionMenu(
             row_bell,
@@ -1564,11 +1567,15 @@ class AbreCursosApp:
         self.opt_bell_action.set(bell_action)
         
         # Fila 11: Indicador de Estado
-        row_status = crear_fila(wf_group, "Mostrar indicador circular de estado:", "Muestra un punto de color en la esquina del widget que indica el estado del planificador.", is_sub_row=True)
+        row_status = crear_fila(self.wf_sub_group, "Mostrar indicador circular de estado:", "Muestra un punto de color en la esquina del widget que indica el estado del planificador.", is_sub_row=True)
         self.sw_widget_status = ctk.CTkSwitch(row_status, text="", command=self.toggle_widget_status)
         self.sw_widget_status.pack(side="right", padx=20)
         if self.datos.get("settings", {}).get("widget_show_status", True):
             self.sw_widget_status.select()
+
+        # Mostrar el sub-grupo solo si la visibilidad inicial del widget está activada
+        if self.datos.get("settings", {}).get("show_mini_widget", False):
+            self.wf_sub_group.pack(fill="x", expand=True)
 
         # 7b. Notificaciones Remotas (Discord / Telegram / WhatsApp)
         rem_frm = crear_fila(adj_scroll, "💬 Notificaciones Móviles:", "Envía notificaciones a tus chats en el celular.")
@@ -1722,7 +1729,11 @@ class AbreCursosApp:
         
         if val:
             self.iniciar_mini_widget()
+            if hasattr(self, 'wf_sub_group') and self.wf_sub_group:
+                self.wf_sub_group.pack(fill="x", expand=True)
         else:
+            if hasattr(self, 'wf_sub_group') and self.wf_sub_group:
+                self.wf_sub_group.pack_forget()
             if hasattr(self, 'mini_widget') and self.mini_widget is not None:
                 try:
                     self.mini_widget.destroy()
