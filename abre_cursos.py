@@ -31,7 +31,7 @@ import subprocess
 import ctypes
 
 # Versión del programa y repositorio
-VERSION = "2.5.0"
+VERSION = "2.5.1"
 GITHUB_USER = "Francoisxd"
 GITHUB_REPO = "abre-cursos"
 
@@ -78,45 +78,68 @@ THEMES = {
     }
 }
 
-def enviar_notificacion_remota(settings, mensaje):
+def enviar_notificacion_remota_sync(settings, mensaje):
     tipo = settings.get("remote_notif_type", "Desactivado")
     if tipo == "Desactivado":
-        return
+        return False, "Notificaciones móviles desactivadas."
     
-    def run():
-        try:
-            if tipo == "Discord":
-                webhook_url = settings.get("discord_webhook", "").strip()
-                if not webhook_url: return
-                data = json.dumps({"content": mensaje}).encode('utf-8')
-                req = urllib.request.Request(
-                    webhook_url,
-                    data=data,
-                    headers={'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0'}
-                )
-                with urllib.request.urlopen(req, timeout=5) as r:
-                    pass
-            elif tipo == "Telegram":
-                token = settings.get("telegram_token", "").strip()
-                chat_id = settings.get("telegram_chat_id", "").strip()
-                if not token or not chat_id: return
-                msg_enc = urllib.parse.quote(mensaje)
-                url = f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={msg_enc}"
-                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-                with urllib.request.urlopen(req, timeout=5) as r:
-                    pass
-            elif tipo == "WhatsApp":
-                phone = settings.get("whatsapp_phone", "").strip()
-                apikey = settings.get("whatsapp_apikey", "").strip()
-                if not phone or not apikey: return
-                msg_enc = urllib.parse.quote(mensaje)
-                url = f"https://api.callmebot.com/whatsapp.php?phone={phone}&text={msg_enc}&apikey={apikey}"
-                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-                with urllib.request.urlopen(req, timeout=5) as r:
-                    pass
-        except Exception as e:
-            print(f"Error enviando notificacion remota: {e}")
+    try:
+        if tipo == "Discord":
+            webhook_url = settings.get("discord_webhook", "").strip()
+            if not webhook_url:
+                return False, "La URL del Webhook de Discord está vacía."
+            if not webhook_url.startswith("https://"):
+                return False, "La URL del Webhook de Discord debe empezar con https://"
+            data = json.dumps({"content": mensaje}).encode('utf-8')
+            req = urllib.request.Request(
+                webhook_url,
+                data=data,
+                headers={'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0'}
+            )
+            with urllib.request.urlopen(req, timeout=5) as r:
+                pass
+            return True, "Mensaje enviado exitosamente a Discord."
             
+        elif tipo == "Telegram":
+            token = settings.get("telegram_token", "").strip()
+            chat_id = settings.get("telegram_chat_id", "").strip()
+            if not token or not chat_id:
+                return False, "Falta el Bot Token o el Chat ID de Telegram."
+            msg_enc = urllib.parse.quote(mensaje)
+            url = f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={msg_enc}"
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=5) as r:
+                pass
+            return True, "Mensaje enviado exitosamente a Telegram."
+            
+        elif tipo == "WhatsApp":
+            phone = settings.get("whatsapp_phone", "").strip()
+            apikey = settings.get("whatsapp_apikey", "").strip()
+            if not phone or not apikey:
+                return False, "Falta el número de teléfono o la API Key de WhatsApp."
+            if not phone.startswith("+"):
+                return False, "El teléfono de WhatsApp debe incluir el símbolo '+' y código de país (ej: +51...)."
+            msg_enc = urllib.parse.quote(mensaje)
+            url = f"https://api.callmebot.com/whatsapp.php?phone={phone}&text={msg_enc}&apikey={apikey}"
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=5) as r:
+                pass
+            return True, "Mensaje enviado exitosamente a WhatsApp."
+            
+    except urllib.error.HTTPError as e:
+        return False, f"Error HTTP {e.code}: {e.reason}"
+    except urllib.error.URLError as e:
+        return False, f"Error de red/servidor (URL incorrecta o sin internet): {e.reason}"
+    except Exception as e:
+        return False, f"Error inesperado: {str(e)}"
+        
+    return False, "Canal remoto no compatible."
+
+def enviar_notificacion_remota(settings, mensaje):
+    def run():
+        res, err = enviar_notificacion_remota_sync(settings, mensaje)
+        if not res:
+            print(f"Error enviando notificacion remota: {err}")
     threading.Thread(target=run, daemon=True).start()
 
 
@@ -219,17 +242,83 @@ def cargar_datos():
                             c["drive_url"] = ""
                         if "notas" not in c:
                             c["notas"] = ""
+                    # Desencriptar credenciales para uso en memoria
+                    settings = data.get("settings", {})
+                    for k in ["discord_webhook", "telegram_token", "telegram_chat_id", "whatsapp_phone", "whatsapp_apikey"]:
+                        if k in settings:
+                            settings[k] = desencriptar_dato_dpapi(settings[k])
                     return data
             except Exception:
                 pass
         return {"version": 4, "settings": default_settings.copy(), "cursos": [], "tareas": []}
 
 
+# --- SEGURIDAD DPAPI (WINDOWS DATA PROTECTION API) ---
+class DATA_BLOB(ctypes.Structure):
+    _fields_ = [("cbData", ctypes.c_ulong), ("pbData", ctypes.c_void_p)]
+
+def encriptar_dato_dpapi(texto):
+    if not texto:
+        return ""
+    try:
+        data = texto.encode('utf-8')
+        in_blob = DATA_BLOB(len(data), ctypes.cast(ctypes.create_string_buffer(data), ctypes.c_void_p))
+        out_blob = DATA_BLOB()
+        
+        # CRYPTPROTECT_UI_FORBIDDEN = 1
+        res = ctypes.windll.crypt32.CryptProtectData(
+            ctypes.byref(in_blob), None, None, None, None, 1, ctypes.byref(out_blob)
+        )
+        if not res:
+            return texto
+            
+        out_buffer = ctypes.string_at(out_blob.pbData, out_blob.cbData)
+        ctypes.windll.kernel32.LocalFree(out_blob.pbData)
+        
+        import base64
+        return base64.b64encode(out_buffer).decode('utf-8')
+    except Exception as e:
+        print(f"Error encriptando DPAPI: {e}")
+        return texto
+
+def desencriptar_dato_dpapi(texto_cifrado_base64):
+    if not texto_cifrado_base64:
+        return ""
+    # Si no parece base64 válido o es texto plano viejo, retornar tal cual
+    if not (texto_cifrado_base64.endswith("==") or len(texto_cifrado_base64) % 4 == 0):
+        return texto_cifrado_base64
+    try:
+        import base64
+        data = base64.b64decode(texto_cifrado_base64.encode('utf-8'))
+        in_blob = DATA_BLOB(len(data), ctypes.cast(ctypes.create_string_buffer(data), ctypes.c_void_p))
+        out_blob = DATA_BLOB()
+        
+        res = ctypes.windll.crypt32.CryptUnprotectData(
+            ctypes.byref(in_blob), None, None, None, None, 1, ctypes.byref(out_blob)
+        )
+        if not res:
+            return texto_cifrado_base64
+            
+        out_buffer = ctypes.string_at(out_blob.pbData, out_blob.cbData)
+        ctypes.windll.kernel32.LocalFree(out_blob.pbData)
+        return out_buffer.decode('utf-8')
+    except Exception:
+        return texto_cifrado_base64
+
 def guardar_datos(datos):
     with data_lock:
         try:
+            import copy
+            c_datos = copy.deepcopy(datos)
+            settings = c_datos.get("settings", {})
+            
+            # Cifrar credenciales antes de guardar en el archivo JSON
+            for k in ["discord_webhook", "telegram_token", "telegram_chat_id", "whatsapp_phone", "whatsapp_apikey"]:
+                if k in settings:
+                    settings[k] = encriptar_dato_dpapi(settings[k])
+                    
             with open(DATA_FILE, "w", encoding="utf-8") as f:
-                json.dump(datos, f, ensure_ascii=False, indent=2)
+                json.dump(c_datos, f, ensure_ascii=False, indent=2)
         except Exception as e:
             print(f"Error saving data: {e}")
 
@@ -253,6 +342,20 @@ def optimizar_url(url):
     return url
 
 def abrir_en_navegador(url, app=None):
+    # Validar protocolo para evitar la ejecución de exploits locales
+    url_lower = url.lower().strip()
+    if not url_lower.startswith(("http://", "https://", "zoommtg://", "msteams://")):
+        if app:
+            app.agregar_log(f"⚠️ [Bloqueo de Seguridad] Intento de abrir URL no permitida: {url}")
+            try:
+                messagebox.showerror(
+                    "Bloqueo de Seguridad",
+                    f"Se ha bloqueado la apertura de un enlace con protocolo no permitido para proteger tu equipo.\n\nEnlace: {url}"
+                )
+            except:
+                pass
+        return
+
     if app:
         browser_choice = app.datos.get("settings", {}).get("browser", "Predeterminado")
     else:
@@ -1279,24 +1382,32 @@ class AbreCursosApp:
         adj_scroll.pack(fill="both", expand=True, padx=20, pady=5)
 
         row_colors = ("#eaeaea", "#262626")
-        
+
+        def crear_fila(parent, titulo, descripcion, is_sub_row=False):
+            frm = ctk.CTkFrame(parent, fg_color="transparent" if is_sub_row else row_colors, corner_radius=8)
+            frm.pack(fill="x", pady=6 if not is_sub_row else 2, ipady=4)
+            
+            left_frm = ctk.CTkFrame(frm, fg_color="transparent")
+            left_frm.pack(side="left", padx=20, pady=10 if not is_sub_row else 5, fill="y", anchor="w")
+            
+            lbl_title = ctk.CTkLabel(left_frm, text=titulo, font=ctk.CTkFont(weight="bold", size=13 if is_sub_row else 14))
+            lbl_title.pack(anchor="w")
+            
+            if descripcion:
+                lbl_desc = ctk.CTkLabel(left_frm, text=descripcion, font=ctk.CTkFont(size=11, slant="italic"), text_color="gray")
+                lbl_desc.pack(anchor="w")
+                
+            return frm
+
         # 1. Modo vacaciones
-        v_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
-        v_frm.pack(fill="x", pady=6, ipady=4)
-        ctk.CTkLabel(v_frm, text="🏖️ Modo Vacaciones:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
-        self.sw_vacaciones = ctk.CTkSwitch(v_frm, text="Desactivar cursos temporalmente", command=self.toggle_vacaciones, font=ctk.CTkFont(size=13))
+        v_frm = crear_fila(adj_scroll, "🏖️ Modo Vacaciones:", "Desactiva de manera temporal la apertura automática de todas las clases.")
+        self.sw_vacaciones = ctk.CTkSwitch(v_frm, text="", command=self.toggle_vacaciones)
         self.sw_vacaciones.pack(side="right", padx=20)
         if self.datos.get("settings", {}).get("vacaciones", False): self.sw_vacaciones.select()
         ToolTip(self.sw_vacaciones, "Habilita este modo para pausar temporalmente todas las clases automáticas (ej: vacaciones).")
 
         # 2. Tolerancia
-        t_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
-        t_frm.pack(fill="x", pady=6, ipady=4)
-        ctk.CTkLabel(t_frm, text="⏳ Tolerancia de retraso:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
-        
-        self.lbl_t_info = ctk.CTkLabel(t_frm, text="Permitir abrir hasta X min tarde", font=ctk.CTkFont(size=11, slant="italic"), text_color="gray")
-        self.lbl_t_info.pack(side="left", padx=10)
-        
+        t_frm = crear_fila(adj_scroll, "⏳ Tolerancia de retraso:", "Permitir abrir cursos hasta X minutos tarde si la clase ya inició.")
         tol_min = self.datos.get("settings", {}).get("tolerancia_min", 30)
         self.opt_tolerancia = ctk.CTkOptionMenu(t_frm, values=["5", "10", "15", "30", "45", "60"], command=self.cambiar_tolerancia)
         self.opt_tolerancia.pack(side="right", padx=20)
@@ -1304,10 +1415,7 @@ class AbreCursosApp:
         ToolTip(self.opt_tolerancia, "Configura cuántos minutos después de la hora programada se puede seguir abriendo la clase.")
 
         # 3. Notificaciones anticipación
-        n_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
-        n_frm.pack(fill="x", pady=6, ipady=4)
-        ctk.CTkLabel(n_frm, text="🔔 Notificar antes de empezar:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
-        
+        n_frm = crear_fila(adj_scroll, "🔔 Notificar antes de empezar:", "Establece el tiempo de antelación para recibir avisos de clase.")
         notif_ant = self.datos.get("settings", {}).get("notif_anticipacion", 5)
         notif_str = "Desactivado" if notif_ant == 0 else f"{notif_ant} min"
         self.opt_notif = ctk.CTkOptionMenu(n_frm, values=["Desactivado", "1 min", "5 min", "10 min", "15 min"], command=self.cambiar_anticipacion)
@@ -1316,10 +1424,7 @@ class AbreCursosApp:
         ToolTip(self.opt_notif, "Establece el tiempo de antelación para recibir la notificación de Windows.")
 
         # 4. Sonido de Notificación
-        s_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
-        s_frm.pack(fill="x", pady=6, ipady=4)
-        ctk.CTkLabel(s_frm, text="🎵 Sonido de Alerta:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
-        
+        s_frm = crear_fila(adj_scroll, "🎵 Sonido de Alerta:", "Personaliza el sonido que reproduce la notificación de clase.")
         sound_sel = self.datos.get("settings", {}).get("notif_sonido", "Reminder")
         self.opt_sonido = ctk.CTkOptionMenu(s_frm, values=["Reminder", "Alarm", "SMS", "Mail", "Silencioso"], command=self.cambiar_sonido)
         self.opt_sonido.pack(side="right", padx=20)
@@ -1327,19 +1432,15 @@ class AbreCursosApp:
         ToolTip(self.opt_sonido, "Personaliza el tono de Windows que se reproduce al avisarte de la clase.")
 
         # 5. Auto-inicio con Windows
-        a_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
-        a_frm.pack(fill="x", pady=6, ipady=4)
-        ctk.CTkLabel(a_frm, text="⚙️ Auto-inicio con Windows:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
-        self.sw_autostart = ctk.CTkSwitch(a_frm, text="Ejecutar al encender el PC", command=self.toggle_autostart, font=ctk.CTkFont(size=13))
+        a_frm = crear_fila(adj_scroll, "⚙️ Auto-inicio con Windows:", "Habilita la ejecución automática al arrancar tu computadora.")
+        self.sw_autostart = ctk.CTkSwitch(a_frm, text="", command=self.toggle_autostart)
         self.sw_autostart.pack(side="right", padx=20)
         if self._is_startup_enabled():
             self.sw_autostart.select()
         ToolTip(self.sw_autostart, "Hacer que Abre-Cursos Pro inicie automáticamente en segundo plano cuando Windows inicie.")
 
         # 6. Apariencia
-        c_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
-        c_frm.pack(fill="x", pady=6, ipady=4)
-        ctk.CTkLabel(c_frm, text="🎨 Apariencia de Interfaz:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
+        c_frm = crear_fila(adj_scroll, "🎨 Apariencia de Interfaz:", "Cambia el modo de tema general entre claro, oscuro y sistema.")
         def change_appearance(mode): ctk.set_appearance_mode(mode); self.refrescar_lista()
         theme_menu = ctk.CTkOptionMenu(c_frm, values=["System", "Dark", "Light"], command=change_appearance)
         theme_menu.pack(side="right", padx=20)
@@ -1347,9 +1448,7 @@ class AbreCursosApp:
         ToolTip(theme_menu, "Alterna entre el tema del sistema, modo oscuro o modo claro.")
         
         # 6b. Color de Acento
-        ac_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
-        ac_frm.pack(fill="x", pady=6, ipady=4)
-        ctk.CTkLabel(ac_frm, text="🌈 Color de Acento:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
+        ac_frm = crear_fila(adj_scroll, "🌈 Color de Acento:", "Establece la paleta de colores para botones e indicadores.")
         theme_sel = self.datos.get("settings", {}).get("theme", "Modern Blue")
         self.opt_accent = ctk.CTkOptionMenu(ac_frm, values=["Modern Blue", "Cyberpunk Purple", "Forest Emerald", "Sunset Orange", "Midnight Gold"], command=self.cambiar_tema)
         self.opt_accent.pack(side="right", padx=20)
@@ -1357,9 +1456,7 @@ class AbreCursosApp:
         ToolTip(self.opt_accent, "Elige la paleta de colores para los botones y controles.")
 
         # 7. Navegador para clases
-        b_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
-        b_frm.pack(fill="x", pady=6, ipady=4)
-        ctk.CTkLabel(b_frm, text="🌐 Navegador para clases:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
+        b_frm = crear_fila(adj_scroll, "🌐 Navegador para clases:", "Elige qué navegador utilizar para abrir las clases programadas.")
         browser_sel = self.datos.get("settings", {}).get("browser", "Predeterminado")
         self.opt_browser = ctk.CTkOptionMenu(b_frm, values=["Predeterminado", "Chrome", "Edge", "Firefox", "Brave"], command=self.cambiar_navegador)
         self.opt_browser.pack(side="right", padx=20)
@@ -1376,20 +1473,15 @@ class AbreCursosApp:
         ctk.CTkLabel(hdr_wf, text="🖥️ CONFIGURACIÓN DEL WIDGET FLOTANTE", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=10)
         
         # Fila 1: Visibilidad
-        row_vis = ctk.CTkFrame(wf_group, fg_color="transparent")
-        row_vis.pack(fill="x", padx=20, pady=4)
-        ctk.CTkLabel(row_vis, text="Mostrar widget flotante en escritorio:", font=ctk.CTkFont(size=13)).pack(side="left")
+        row_vis = crear_fila(wf_group, "Mostrar widget flotante en escritorio:", "Muestra una ventana flotante con la cuenta regresiva en el escritorio.", is_sub_row=True)
         self.sw_mini_widget = ctk.CTkSwitch(row_vis, text="", command=self.toggle_mini_widget)
-        self.sw_mini_widget.pack(side="right")
+        self.sw_mini_widget.pack(side="right", padx=20)
         if self.datos.get("settings", {}).get("show_mini_widget", False):
             self.sw_mini_widget.select()
         ToolTip(self.sw_mini_widget, "Muestra una pequeña ventana flotante en tu escritorio con la cuenta regresiva de la próxima clase.")
 
         # Fila 2: Modo de pantalla (Fijación)
-        row_pin = ctk.CTkFrame(wf_group, fg_color="transparent")
-        row_pin.pack(fill="x", padx=20, pady=4)
-        ctk.CTkLabel(row_pin, text="Modo de fijación en pantalla:", font=ctk.CTkFont(size=13)).pack(side="left")
-        
+        row_pin = crear_fila(wf_group, "Modo de fijación en pantalla:", "Configura si el widget flota sobre las ventanas o se ancla al fondo.", is_sub_row=True)
         pinned_val = self.datos.get("settings", {}).get("widget_pinned_mode", "Frente")
         pinned_map = {"Frente": "Siempre al frente", "Normal": "Normal", "Fondo": "Fijo en fondo de escritorio"}
         self.opt_widget_pinned_mode = ctk.CTkOptionMenu(
@@ -1397,25 +1489,20 @@ class AbreCursosApp:
             values=["Siempre al frente", "Normal", "Fijo en fondo de escritorio"],
             command=self.cambiar_modo_fijacion_widget
         )
-        self.opt_widget_pinned_mode.pack(side="right")
+        self.opt_widget_pinned_mode.pack(side="right", padx=20)
         self.opt_widget_pinned_mode.set(pinned_map.get(pinned_val, "Siempre al frente"))
         ToolTip(self.opt_widget_pinned_mode, "Configura si el widget flota por encima de todo o se queda fijo al fondo de escritorio.")
 
         # Fila 3: Click-Through (Atravesar clics)
-        row_ct = ctk.CTkFrame(wf_group, fg_color="transparent")
-        row_ct.pack(fill="x", padx=20, pady=4)
-        ctk.CTkLabel(row_ct, text="Atravesar clics (Click-through):", font=ctk.CTkFont(size=13)).pack(side="left")
+        row_ct = crear_fila(wf_group, "Atravesar clics (Click-through):", "Ignora los clics del ratón para poder hacer clic en el fondo.", is_sub_row=True)
         self.sw_widget_click_through = ctk.CTkSwitch(row_ct, text="", command=self.toggle_widget_click_through)
-        self.sw_widget_click_through.pack(side="right")
+        self.sw_widget_click_through.pack(side="right", padx=20)
         if self.datos.get("settings", {}).get("widget_click_through", False):
             self.sw_widget_click_through.select()
         ToolTip(self.sw_widget_click_through, "Permite hacer clic a través del widget flotante para interactuar con lo que está debajo.")
         
         # Fila 4: Opacidad
-        row_opac = ctk.CTkFrame(wf_group, fg_color="transparent")
-        row_opac.pack(fill="x", padx=20, pady=4)
-        ctk.CTkLabel(row_opac, text="Opacidad en reposo:", font=ctk.CTkFont(size=13)).pack(side="left")
-        
+        row_opac = crear_fila(wf_group, "Opacidad en reposo:", "Ajusta la transparencia del widget cuando no esté el ratón encima.", is_sub_row=True)
         opacity_val = self.datos.get("settings", {}).get("widget_opacity", 0.7)
         opacity_str_map = {0.5: "50%", 0.7: "70%", 0.85: "85%", 1.0: "100%"}
         
@@ -1424,153 +1511,130 @@ class AbreCursosApp:
             values=["50%", "70%", "85%", "100%"],
             command=self.cambiar_opacidad_widget
         )
-        self.opt_opacity.pack(side="right")
+        self.opt_opacity.pack(side="right", padx=20)
         self.opt_opacity.set(opacity_str_map.get(opacity_val, "70%"))
         ToolTip(self.opt_opacity, "Opacidad de la ventana cuando el cursor no está encima.")
         
         # Fila 5: Bloquear Posición
-        row_lock = ctk.CTkFrame(wf_group, fg_color="transparent")
-        row_lock.pack(fill="x", padx=20, pady=4)
-        ctk.CTkLabel(row_lock, text="Bloquear posición (evitar arrastre):", font=ctk.CTkFont(size=13)).pack(side="left")
+        row_lock = crear_fila(wf_group, "Bloquear posición (evitar arrastre):", "Bloquea el arrastre del widget para evitar moverlo por accidente.", is_sub_row=True)
         self.sw_widget_lock = ctk.CTkSwitch(row_lock, text="", command=self.toggle_widget_lock)
-        self.sw_widget_lock.pack(side="right")
+        self.sw_widget_lock.pack(side="right", padx=20)
         if self.datos.get("settings", {}).get("widget_locked", False):
             self.sw_widget_lock.select()
         ToolTip(self.sw_widget_lock, "Evita mover accidentalmente el widget flotante arrastrándolo.")
 
         # Fila 6: Escala / Tamaño
-        row_scale = ctk.CTkFrame(wf_group, fg_color="transparent")
-        row_scale.pack(fill="x", padx=20, pady=4)
-        ctk.CTkLabel(row_scale, text="Escala de tamaño del widget:", font=ctk.CTkFont(size=13)).pack(side="left")
-        
+        row_scale = crear_fila(wf_group, "Escala de tamaño del widget:", "Cambia las dimensiones del widget en la pantalla.", is_sub_row=True)
         scale_val = self.datos.get("settings", {}).get("widget_scale", "100%")
         self.opt_scale = ctk.CTkOptionMenu(
             row_scale,
             values=["80%", "100%", "120%"],
             command=self.cambiar_escala_widget
         )
-        self.opt_scale.pack(side="right")
+        self.opt_scale.pack(side="right", padx=20)
         self.opt_scale.set(scale_val)
         ToolTip(self.opt_scale, "Escala el tamaño general del widget flotante en tu escritorio.")
 
         # Fila 7: Esquinas predefinidas (Posición)
-        row_preset = ctk.CTkFrame(wf_group, fg_color="transparent")
-        row_preset.pack(fill="x", padx=20, pady=4)
-        ctk.CTkLabel(row_preset, text="Posición automática del widget:", font=ctk.CTkFont(size=13)).pack(side="left")
-        
+        row_preset = crear_fila(wf_group, "Posición automática del widget:", "Ubica automáticamente el widget en una esquina de la pantalla.", is_sub_row=True)
         preset_val = self.datos.get("settings", {}).get("widget_preset_position", "Manual")
         self.opt_preset = ctk.CTkOptionMenu(
             row_preset,
             values=["Manual", "Arriba-Derecha", "Arriba-Izquierda", "Abajo-Derecha", "Abajo-Izquierda"],
             command=self.cambiar_posicion_esquina
         )
-        self.opt_preset.pack(side="right")
+        self.opt_preset.pack(side="right", padx=20)
         self.opt_preset.set(preset_val)
         ToolTip(self.opt_preset, "Fija el widget de manera automática a una esquina de la pantalla.")
 
         # Fila 8: Formato del tiempo
-        row_time_f = ctk.CTkFrame(wf_group, fg_color="transparent")
-        row_time_f.pack(fill="x", padx=20, pady=4)
-        ctk.CTkLabel(row_time_f, text="Formato de cuenta regresiva:", font=ctk.CTkFont(size=13)).pack(side="left")
-        
+        row_time_f = crear_fila(wf_group, "Formato de cuenta regresiva:", "Alterna entre descripción en palabras o formato de reloj (HH:MM:SS).", is_sub_row=True)
         time_f_val = self.datos.get("settings", {}).get("widget_time_format", "Amigable")
         self.opt_time_format = ctk.CTkOptionMenu(
             row_time_f,
             values=["Amigable", "Preciso (HH:MM:SS)"],
             command=self.cambiar_formato_tiempo
         )
-        self.opt_time_format.pack(side="right")
+        self.opt_time_format.pack(side="right", padx=20)
         self.opt_time_format.set(time_f_val)
         ToolTip(self.opt_time_format, "Alterna entre tiempo amigable aproximado o cuenta exacta tipo cronómetro.")
 
         # Fila 9: Color independiente del Widget
-        row_w_color = ctk.CTkFrame(wf_group, fg_color="transparent")
-        row_w_color.pack(fill="x", padx=20, pady=4)
-        ctk.CTkLabel(row_w_color, text="Color de acento del widget:", font=ctk.CTkFont(size=13)).pack(side="left")
-        
+        row_w_color = crear_fila(wf_group, "Color de acento del widget:", "Usa un color de tema exclusivo para el widget en lugar del principal.", is_sub_row=True)
         w_color_val = self.datos.get("settings", {}).get("widget_color_override", "Tema principal")
         self.opt_w_color = ctk.CTkOptionMenu(
             row_w_color,
             values=["Tema principal", "Azul", "Violeta", "Esmeralda", "Naranja", "Dorado"],
             command=self.cambiar_color_override_widget
         )
-        self.opt_w_color.pack(side="right")
+        self.opt_w_color.pack(side="right", padx=20)
         self.opt_w_color.set(w_color_val)
         ToolTip(self.opt_w_color, "Configura un color de acento único para el widget flotante.")
         
         # Fila 10: Acción de Campana
-        row_bell = ctk.CTkFrame(wf_group, fg_color="transparent")
-        row_bell.pack(fill="x", padx=20, pady=4)
-        ctk.CTkLabel(row_bell, text="Acción del botón de la campana:", font=ctk.CTkFont(size=13)).pack(side="left")
-        
+        row_bell = crear_fila(wf_group, "Acción del botón de la campana:", "Cambia la función de la campana en el widget flotante.", is_sub_row=True)
         bell_action = self.datos.get("settings", {}).get("widget_bell_action", "Silenciar sonido")
         self.opt_bell_action = ctk.CTkOptionMenu(
             row_bell,
             values=["Silenciar sonido", "Pausar apertura"],
             command=self.cambiar_accion_campana
         )
-        self.opt_bell_action.pack(side="right")
+        self.opt_bell_action.pack(side="right", padx=20)
         self.opt_bell_action.set(bell_action)
         ToolTip(self.opt_bell_action, "Configura qué sucede al hacer clic sobre el botón de campana del widget flotante.")
         
         # Fila 11: Indicador de Estado
-        row_status = ctk.CTkFrame(wf_group, fg_color="transparent")
-        row_status.pack(fill="x", padx=20, pady=4)
-        ctk.CTkLabel(row_status, text="Mostrar indicador circular de estado:", font=ctk.CTkFont(size=13)).pack(side="left")
+        row_status = crear_fila(wf_group, "Mostrar indicador circular de estado:", "Agrega un punto verde/amarillo en la esquina del widget.", is_sub_row=True)
         self.sw_widget_status = ctk.CTkSwitch(row_status, text="", command=self.toggle_widget_status)
-        self.sw_widget_status.pack(side="right")
+        self.sw_widget_status.pack(side="right", padx=20)
         if self.datos.get("settings", {}).get("widget_show_status", True):
             self.sw_widget_status.select()
         ToolTip(self.sw_widget_status, "Muestra un punto de color en la esquina del widget que indica el estado del planificador.")
 
         # 7b. Notificaciones Remotas (Discord / Telegram / WhatsApp)
-        rem_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
-        rem_frm.pack(fill="x", pady=6, ipady=4)
-        ctk.CTkLabel(rem_frm, text="💬 Notificaciones Móviles:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
-        
+        rem_frm = crear_fila(adj_scroll, "💬 Notificaciones Móviles:", "Envía alertas automáticas directamente a tu teléfono móvil.")
         rem_type = self.datos.get("settings", {}).get("remote_notif_type", "Desactivado")
-        self.opt_remote = ctk.CTkOptionMenu(rem_frm, values=["Desactivado", "Discord", "Telegram", "WhatsApp"], command=self.cambiar_notif_remota)
-        self.opt_remote.pack(side="right", padx=20)
+        
+        # Container frame for buttons on the right to align them horizontally
+        rem_ctrls = ctk.CTkFrame(rem_frm, fg_color="transparent")
+        rem_ctrls.pack(side="right", padx=20)
+        
+        self.opt_remote = ctk.CTkOptionMenu(rem_ctrls, values=["Desactivado", "Discord", "Telegram", "WhatsApp"], command=self.cambiar_notif_remota)
+        self.opt_remote.pack(side="left", padx=5)
         self.opt_remote.set(rem_type)
         ToolTip(self.opt_remote, "Envía notificaciones a tus chats en el celular.")
         
-        btn_cfg_rem = ctk.CTkButton(rem_frm, text="⚙️ Configurar", width=95, height=28, fg_color="#d97706", hover_color="#b45309", command=self.configurar_notificaciones_remotas)
-        btn_cfg_rem.pack(side="right", padx=5)
+        btn_cfg_rem = ctk.CTkButton(rem_ctrls, text="⚙️ Configurar", width=95, height=28, fg_color="#d97706", hover_color="#b45309", command=self.configurar_notificaciones_remotas)
+        btn_cfg_rem.pack(side="left", padx=5)
         ToolTip(btn_cfg_rem, "Configura las URLs, tokens y credenciales para Discord, Telegram o WhatsApp.")
 
         # 8. Actualizaciones
-        up_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
-        up_frm.pack(fill="x", pady=6, ipady=4)
-        ctk.CTkLabel(up_frm, text="🔄 Actualizaciones de Software:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
+        up_frm = crear_fila(adj_scroll, "🔄 Actualizaciones de Software:", "Verifica si hay nuevas versiones del programa disponibles.")
         btn_update = ctk.CTkButton(up_frm, text="Buscar Actualización", fg_color="#7c3aed", hover_color="#6d28d9", font=ctk.CTkFont(size=12, weight="bold"), width=150, command=self.buscar_actualizacion_manual)
         btn_update.pack(side="right", padx=20)
         ToolTip(btn_update, "Busca nuevas versiones en el servidor/repositorio remoto e instala la actualización si está disponible.")
 
         # 9. Importar / Exportar
-        ie_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
-        ie_frm.pack(fill="x", pady=6, ipady=4)
-        ctk.CTkLabel(ie_frm, text="📁 Copia de Seguridad:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
+        ie_frm = crear_fila(adj_scroll, "📁 Copia de Seguridad:", "Respalda o restaura tus clases y ajustes en un archivo JSON local.")
+        ie_ctrls = ctk.CTkFrame(ie_frm, fg_color="transparent")
+        ie_ctrls.pack(side="right", padx=20)
         
-        btn_exp = ctk.CTkButton(ie_frm, text="Exportar Horarios", fg_color="#10b981", hover_color="#059669", font=ctk.CTkFont(size=12, weight="bold"), width=130, command=self.exportar_cursos)
-        btn_exp.pack(side="right", padx=20)
+        btn_exp = ctk.CTkButton(ie_ctrls, text="Exportar Horarios", fg_color="#10b981", hover_color="#059669", font=ctk.CTkFont(size=12, weight="bold"), width=130, command=self.exportar_cursos)
+        btn_exp.pack(side="left", padx=5)
         ToolTip(btn_exp, "Exporta todos tus cursos y configuraciones a un archivo JSON externo.")
         
-        btn_imp = ctk.CTkButton(ie_frm, text="Importar Horarios", fg_color="#3b82f6", hover_color="#2563eb", font=ctk.CTkFont(size=12, weight="bold"), width=130, command=self.importar_cursos)
-        btn_imp.pack(side="right", padx=5)
+        btn_imp = ctk.CTkButton(ie_ctrls, text="Importar Horarios", fg_color="#3b82f6", hover_color="#2563eb", font=ctk.CTkFont(size=12, weight="bold"), width=130, command=self.importar_cursos)
+        btn_imp.pack(side="left", padx=5)
         ToolTip(btn_imp, "Importa una base de datos de horarios JSON externa, reemplazando la actual.")
         
         # 9b. Importar desde Calendario (.ics)
-        cal_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
-        cal_frm.pack(fill="x", pady=6, ipady=4)
-        ctk.CTkLabel(cal_frm, text="📆 Importar de Calendario (.ics):", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
+        cal_frm = crear_fila(adj_scroll, "📆 Importar de Calendario (.ics):", "Carga tus clases y horarios desde archivos .ics estándar de calendario.")
         btn_cal = ctk.CTkButton(cal_frm, text="Importar .ics", fg_color="#7c3aed", hover_color="#6d28d9", font=ctk.CTkFont(size=12, weight="bold"), width=150, command=self.importar_calendario_ics)
         btn_cal.pack(side="right", padx=20)
         ToolTip(btn_cal, "Carga un archivo de calendario iCalendar (.ics) para registrar tus cursos de manera masiva.")
 
         # 10. Desinstalación
-        u_frm = ctk.CTkFrame(adj_scroll, fg_color=row_colors, corner_radius=8)
-        u_frm.pack(fill="x", pady=6, ipady=4)
-        ctk.CTkLabel(u_frm, text="❌ Desinstalación completa:", font=ctk.CTkFont(weight="bold", size=14)).pack(side="left", padx=20, pady=10)
+        u_frm = crear_fila(adj_scroll, "❌ Desinstalación completa:", "Desinstala el programa, los accesos directos y borra tus datos guardados.")
         btn_un = ctk.CTkButton(u_frm, text="Desinstalar Programa", fg_color="#dc2626", hover_color="#b91c1c", command=self.desinstalar)
         btn_un.pack(side="right", padx=20)
         ToolTip(btn_un, "Elimina la aplicación, tus cursos guardados y los accesos directos de tu equipo.")
@@ -1646,8 +1710,13 @@ class AbreCursosApp:
             if test_settings["remote_notif_type"] == "Desactivado":
                 messagebox.showwarning("Prueba", "Por favor, selecciona Discord, Telegram o WhatsApp antes de probar.")
                 return
-            enviar_notificacion_remota(test_settings, "🔔 Abre-Cursos Pro: Mensaje de prueba exitoso!")
-            messagebox.showinfo("Prueba", "Mensaje de prueba enviado. ¡Verifica tu chat!")
+            
+            # Realizar la prueba síncronamente para poder atrapar y mostrar el diagnóstico de errores
+            success, msg = enviar_notificacion_remota_sync(test_settings, "🔔 Abre-Cursos Pro: Mensaje de prueba exitoso!")
+            if success:
+                messagebox.showinfo("Prueba Exitosa", f"¡Envío exitoso!\n\n{msg}")
+            else:
+                messagebox.showerror("Error en Prueba", f"No se pudo enviar la notificación:\n\n{msg}")
             
         def save():
             with data_lock:

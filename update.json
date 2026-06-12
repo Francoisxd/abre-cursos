@@ -1,5 +1,5 @@
 {
-  "version": "2.5.0",
+  "version": "2.5.1",
   "url": "https://github.com/Francoisxd/abre-cursos/raw/main/AbreCursos.zip",
-  "changelog": "Versión 2.5.0: Modificaciones avanzadas del widget flotante (modo de fijación en Fondo de Escritorio por debajo de las ventanas, modo Click-Through para traspasar clics, escalado de tamaño 80%/100%/120%, alineación rápida a esquinas de la pantalla, color de acento del widget independiente, y cuenta regresiva en formato cronómetro HH:MM:SS)."
+  "changelog": "Versión 2.5.1: Mejoras críticas de seguridad (filtros de protocolo estrictos y cifrado de credenciales DPAPI en Windows), rediseño visual de los Ajustes (título y descripción apilados a la izquierda) y diagnóstico detallado de errores en la prueba de notificaciones móviles."
 }
