@@ -1,5 +1,5 @@
 {
-  "version": "2.4.8",
+  "version": "2.4.9",
   "url": "https://github.com/Francoisxd/abre-cursos/raw/main/AbreCursos.zip",
-  "changelog": "Versión 2.4.8: Corrección de contraste crítico de textos. Ahora todas las etiquetas, nombres de opciones de Ajustes y nombres de los días de la semana en Horarios se leen perfectamente en color blanco/claro, solucionando el problema de visualización cuando Windows está en modo claro y el tema es oscuro."
+  "changelog": "Versión 2.4.9: Rediseño visual premium del widget flotante (cabecera con calendario, botón interactivo de campana para silenciar/pausar clases rápido, cápsula con icono de reloj para la cuenta regresiva, y punto LED indicador de estado inteligente). Panel de configuración avanzada en Ajustes para controlar opacidad, bloqueo de arrastre, acción de la campana e indicador de estado."
 }
