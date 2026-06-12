@@ -1,5 +1,5 @@
 {
-  "version": "2.5.1",
+  "version": "2.5.2",
   "url": "https://github.com/Francoisxd/abre-cursos/raw/main/AbreCursos.zip",
-  "changelog": "Versión 2.5.1: Mejoras críticas de seguridad (filtros de protocolo estrictos y cifrado de credenciales DPAPI en Windows), rediseño visual de los Ajustes (título y descripción apilados a la izquierda) y diagnóstico detallado de errores en la prueba de notificaciones móviles."
+  "changelog": "Versión 2.5.2: Mejoras visuales de Ajustes finalizadas con la migración completa de los textos de los ToolTips hacia las descripciones a la izquierda y eliminación de tooltips redundantes."
 }

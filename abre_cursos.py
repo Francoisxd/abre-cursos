@@ -31,7 +31,7 @@ import subprocess
 import ctypes
 
 # Versión del programa y repositorio
-VERSION = "2.5.1"
+VERSION = "2.5.2"
 GITHUB_USER = "Francoisxd"
 GITHUB_REPO = "abre-cursos"
 
