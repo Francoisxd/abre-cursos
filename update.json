@@ -1,5 +1,5 @@
 {
-  "version": "2.5.4",
+  "version": "2.5.5",
   "url": "https://github.com/Francoisxd/abre-cursos/raw/main/AbreCursos.zip",
-  "changelog": "Versión 2.5.4: Ocultamiento dinámico del panel de ajustes secundarios del widget flotante. Ahora las opciones del widget solo se muestran si el switch de visualización de widget en escritorio está activado."
+  "changelog": "Versión 2.5.5: Solucionado un problema visual crítico donde el texto de la ventana de configuración y notificaciones no era legible (texto blanco sobre fondo claro). Ahora estas ventanas respetan correctamente el fondo oscuro del tema elegido."
 }

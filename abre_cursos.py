@@ -31,7 +31,7 @@ import subprocess
 import ctypes
 
 # Versión del programa y repositorio
-VERSION = "2.5.4"
+VERSION = "2.5.5"
 GITHUB_USER = "Francoisxd"
 GITHUB_REPO = "abre-cursos"
 
@@ -2401,6 +2401,8 @@ class AbreCursosApp:
                     child.configure(button_color=acc, button_hover_color=hov, text_color="white")
                 elif isinstance(child, tk.Canvas):
                     child.configure(bg=bg_frame)
+                elif isinstance(child, ctk.CTkToplevel):
+                    child.configure(fg_color=bg_app)
                 _update(child)
         _update(self.root)
         
